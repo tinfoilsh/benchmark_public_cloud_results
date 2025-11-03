@@ -278,13 +278,12 @@ def create_itl_plots(all_data):
 
     # Create scenario titles for the new naming convention
     base_scenario_titles = {
-        'random': 'Random Generation',
-        'summarization': 'Summarization',
-        'translation': 'Translation',
+        'random': 'Random (1500 ⇒ 250)',
+        'summarization': 'Random (4000 ⇒ 1000)',
+        'translation': 'Random (1000 ⇒ 1000)',
         'sharegpt': 'ShareGPT',
         'edit_10k_char': 'Edit 10K Characters',
         'numina_math': 'Numina Math',
-        'reasoning': 'Reasoning'
     }
     
     # Generate titles for all scenario_rate combinations
