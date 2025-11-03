@@ -118,7 +118,6 @@ def collect_itl_data():
         "sharegpt",
         "edit_10k_char",
         "numina_math",
-        "reasoning"
     ]
     
     # Request rates are also part of the scenario identification
@@ -273,7 +272,7 @@ def create_itl_plots(all_data):
         except Exception:
             plt.style.use('ggplot')
 
-    pdf = matplotlib.backends.backend_pdf.PdfPages("itl_results.pdf")
+    pdf = matplotlib.backends.backend_pdf.PdfPages("results_itl.pdf")
     _, model_order, display_names, model_colors, mode_labels = load_config()
 
     # Create scenario titles for the new naming convention
@@ -569,4 +568,4 @@ if __name__ == "__main__":
 
     print_performance_overhead(all_data)
 
-    print("\n✓ All ITL charts saved to: itl_results.pdf")
+    print("\n✓ All ITL charts saved to: results_itl.pdf")

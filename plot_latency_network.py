@@ -111,45 +111,141 @@ def sort_models_by_config(models, model_order):
 
 
 def collect_network_latency_data():
-    """Collect E2E latency metrics and add network latency simulation"""
-    cc_results_dir = Path('./cc-results')
-    no_cc_results_dir = Path('./no-cc-results')
+    """Collect E2E latency metrics and add network latency simulation from the new file structure"""
+    results_dir = Path('./results_gcp')
     excluded_models, _, _, _, _ = load_config()
 
-    scenarios = [
-        'high_load_64concurrent',
-        'max_throughput_rampup',
-        'medium_load_32concurrent',
-        'single_request_sharegpt'
+    # Define the base scenarios
+    base_scenarios = [
+        "random",
+        "summarization", 
+        "translation",
+        "sharegpt",
+        "edit_10k_char",
+        "numina_math",
     ]
+    
+    # Request rates are also part of the scenario identification
+    request_rates = [100, 50, 1]
+    
+    # Create full scenario list (scenario_rate combinations)
+    scenarios = []
+    for base_scenario in base_scenarios:
+        for rate in request_rates:
+            scenarios.append(f"{base_scenario}_rate{rate}")
 
     all_data = {}
 
+    # Initialize all_data structure
     for scenario in scenarios:
         all_data[scenario] = {'cc': {}, 'no_cc': {}}
 
-        for results_dir, cc_key in [(cc_results_dir, 'cc'), (no_cc_results_dir, 'no_cc')]:
-            if not results_dir.exists():
-                continue
+    if not results_dir.exists():
+        print("Results directory not found")
+        return all_data
 
-            for result_group in results_dir.iterdir():
-                if result_group.is_dir() and result_group.name.endswith('_results'):
-                    serve_dir = result_group / 'serve'
-                    if serve_dir.exists():
-                        for model_dir in serve_dir.iterdir():
-                            if model_dir.is_dir():
-                                if model_dir.name in excluded_models:
-                                    continue
-                                filepath = model_dir / f"{scenario}.json"
-                                if filepath.exists():
-                                    json_data = load_json_data(filepath)
-                                    if json_data:
-                                        base_e2el = float(json_data.get('mean_e2el_ms', 0) or 0)
-                                        all_data[scenario][cc_key][model_dir.name] = {
-                                            'base_e2el_ms': base_e2el,
-                                            'network_e2el_ms': base_e2el + NETWORK_LATENCY_MS,
-                                            'std_e2el_ms': float(json_data.get('std_e2el_ms', 0) or 0),
-                                        }
+    # Process all JSON files in results_gcp
+    for file_path in results_dir.glob("*.json"):
+        filename = file_path.name
+        
+        # Skip non-result files
+        if not filename.startswith("results_") or not filename.endswith(".json"):
+            continue
+            
+        # Parse filename: results_{model}_{scenario}_rate{rate}.json
+        # Or: results_{model}_non-cc_{scenario}_rate{rate}.json
+        
+        # Remove 'results_' prefix and '.json' suffix
+        name_part = filename[8:-5]
+        
+        # Check if it's non-cc
+        is_non_cc = "_non-cc_" in name_part
+        
+        # Extract model and scenario
+        if is_non_cc:
+            # Split by '_non-cc_'
+            parts = name_part.split("_non-cc_", 1)
+            model = parts[0]
+            rest = parts[1]
+            
+            # Find rate part in rest
+            rate_pos = rest.rfind("_rate")
+            if rate_pos == -1:
+                print(f"Could not find rate in file: {filename}")
+                continue
+                
+            # Extract scenario name (without rate)
+            scenario_name = rest[:rate_pos]
+            rate_part = rest[rate_pos+1:]  # Include 'rate' part
+            
+            # Reconstruct full scenario name
+            scenario = f"{scenario_name}_{rate_part}"
+        else:
+            # For CC files, find the rate part first
+            rate_pos = name_part.rfind("_rate")
+            if rate_pos == -1:
+                print(f"Could not find rate in file: {filename}")
+                continue
+                
+            # Extract the rate part
+            rate_part = name_part[rate_pos+1:]  # Include the 'rate' part
+            
+            # Everything before the rate part is the model + scenario
+            model_scenario_part = name_part[:rate_pos]
+            
+            # Now we need to separate model from scenario
+            # We look for the longest matching scenario from the end of the string
+            # (e.g., match "edit_10k_char" before "char")
+            sorted_scenarios = sorted(base_scenarios, key=len, reverse=True)
+            
+            for base_scenario in sorted_scenarios:
+                if base_scenario in model_scenario_part:
+                    scenario_found = f"{base_scenario}_{rate_part}"
+                    # Extract model part (everything before the scenario)
+                    scenario_start = model_scenario_part.rfind(base_scenario)
+                    if scenario_start > 0:
+                        model_part = model_scenario_part[:scenario_start-1]  # -1 to remove the underscore
+                    else:
+                        model_part = model_scenario_part
+                    break
+            
+            if scenario_found is None:
+                print(f"Could not determine scenario for file: {filename}")
+                continue
+                
+            model = model_part
+            scenario = scenario_found
+        
+        # Skip excluded models
+        if model in excluded_models:
+            continue
+            
+        # Check if scenario is valid
+        if scenario not in scenarios:
+            # Skip unknown scenarios
+            continue
+        
+        # Determine CC mode
+        mode = 'no_cc' if is_non_cc else 'cc'
+        
+        # Load JSON data
+        json_data = load_json_data(file_path)
+        if json_data:
+            # Initialize model entry if not exists
+            if model not in all_data[scenario][mode]:
+                all_data[scenario][mode][model] = {
+                    'base_e2el_ms': 0,
+                    'network_e2el_ms': 0,
+                    'std_e2el_ms': 0,
+                }
+            
+            # Update with data from JSON
+            base_e2el = float(json_data.get('mean_e2el_ms', 0) or 0)
+            all_data[scenario][mode][model] = {
+                'base_e2el_ms': base_e2el,
+                'network_e2el_ms': base_e2el + NETWORK_LATENCY_MS,
+                'std_e2el_ms': float(json_data.get('std_e2el_ms', 0) or 0),
+            }
 
     return all_data
 
@@ -171,15 +267,25 @@ def create_network_latency_plots(all_data):
         except Exception:
             plt.style.use('ggplot')
 
-    pdf = matplotlib.backends.backend_pdf.PdfPages("network_latency_results.pdf")
+    pdf = matplotlib.backends.backend_pdf.PdfPages("results_network_latency.pdf")
     _, model_order, display_names, model_colors, mode_labels = load_config()
 
-    scenario_titles = {
-        'high_load_64concurrent': 'High Load (64 Concurrent Requests)',
-        'max_throughput_rampup': 'Max Throughput (Rampup)',
-        'medium_load_32concurrent': 'Medium Load (32 Concurrent Requests)',
-        'single_request_sharegpt': 'Single Request (ShareGPT Dataset)'
+    # Create scenario titles for the new naming convention
+    base_scenario_titles = {
+        'random': 'Random (1500 ⇒ 250)',
+        'summarization': 'Random (4000 ⇒ 1000)',
+        'translation': 'Random (1000 ⇒ 1000)',
+        'sharegpt': 'ShareGPT',
+        'edit_10k_char': 'Edit 10K Characters',
+        'numina_math': 'Numina Math',
     }
+    
+    # Generate titles for all scenario_rate combinations
+    scenario_titles = {}
+    for base_scenario, title in base_scenario_titles.items():
+        for rate in [100, 50, 1]:
+            scenario_key = f"{base_scenario}_rate{rate}"
+            scenario_titles[scenario_key] = f"{title} (Rate {rate})"
 
     for scenario, data in all_data.items():
         models_present = (
@@ -296,12 +402,13 @@ def print_network_latency_summary(all_data):
                 print(f"  {mode_label}:")
                 models = sort_models_by_config(data[mode].keys(), model_order)
                 for model in models:
-                    m = data[mode][model]
-                    display_name = get_display_name(model, display_names)
-                    print(
-                        f"    {display_name:30} Base E2E: {m['base_e2el_ms']:8.2f}  "
-                        f"With Network: {m['network_e2el_ms']:8.2f}"
-                    )
+                    if model in data[mode]:
+                        m = data[mode][model]
+                        display_name = get_display_name(model, display_names)
+                        print(
+                            f"    {display_name:30} Base E2E: {m['base_e2el_ms']:8.2f}  "
+                            f"With Network: {m['network_e2el_ms']:8.2f}"
+                        )
 
 
 def print_performance_overhead(all_data):
@@ -311,7 +418,7 @@ def print_performance_overhead(all_data):
     print("="*80)
     print("\nOverhead = ((CC - No-CC) / No-CC) * 100%")
     print("Positive values mean CC is slower (worse)\n")
-    _, model_order, display_names, _, _ = load_config()
+    _, model_order, display_names, _, mode_labels = load_config()
 
     all_models = set()
     for scenario in all_data.values():
@@ -375,4 +482,4 @@ if __name__ == "__main__":
 
     print_performance_overhead(all_data)
 
-    print(f"\n✓ All network latency charts saved to: network_latency_results.pdf")
+    print(f"\n✓ All network latency charts saved to: results_network_latency.pdf")

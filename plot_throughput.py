@@ -96,48 +96,150 @@ def get_display_name(model, display_names):
     return display_names.get(model, model)
 
 def collect_all_scenario_data():
-    """Collect throughput data for each scenario separately"""
-    cc_results_dir = Path('./cc-results')
-    no_cc_results_dir = Path('./no-cc-results')
+    """Collect throughput data for each scenario separately from the new file structure"""
+    results_dir = Path('./results_gcp')
     excluded_models, _, _, _, _ = load_config()
 
-    scenarios = [
-        'high_load_64concurrent',
-        'max_throughput_rampup',
-        'medium_load_32concurrent',
-        'single_request_sharegpt'
+    # Define the base scenarios
+    base_scenarios = [
+        "random",
+        "summarization", 
+        "translation",
+        "sharegpt",
+        "edit_10k_char",
+        "numina_math",
     ]
+    
+    # Request rates are also part of the scenario identification
+    request_rates = [100, 50, 1]
+    
+    # Create full scenario list (scenario_rate combinations)
+    scenarios = []
+    for base_scenario in base_scenarios:
+        for rate in request_rates:
+            scenarios.append(f"{base_scenario}_rate{rate}")
 
     all_data = {}
 
+    # Initialize all_data structure
     for scenario in scenarios:
         all_data[scenario] = {'cc': {}, 'no_cc': {}}
 
-        for results_dir, cc_key in [(cc_results_dir, 'cc'), (no_cc_results_dir, 'no_cc')]:
-            if not results_dir.exists():
-                continue
+    if not results_dir.exists():
+        print("Results directory not found")
+        return all_data
 
-            for result_group in results_dir.iterdir():
-                if result_group.is_dir() and result_group.name.endswith('_results'):
-                    serve_dir = result_group / 'serve'
-                    if serve_dir.exists():
-                        for model_dir in serve_dir.iterdir():
-                            if model_dir.is_dir():
-                                if model_dir.name in excluded_models:
-                                    continue
-                                filepath = model_dir / f"{scenario}.json"
-                                if filepath.exists():
-                                    json_data = load_json_data(filepath)
-                                    if json_data:
-                                        duration = json_data.get('duration', 1)
-                                        total_input = json_data.get('total_input_tokens', 0)
-                                        input_throughput = total_input / duration if duration > 0 else 0
-                                        total_output = json_data.get('total_output_tokens', 0)
-                                        output_throughput = total_output / duration if duration > 0 else 0
-                                        all_data[scenario][cc_key][model_dir.name] = {
-                                            'input_throughput': input_throughput,
-                                            'output_throughput': output_throughput
-                                        }
+    # Process all JSON files in results_gcp
+    for file_path in results_dir.glob("*.json"):
+        filename = file_path.name
+        
+        # Skip non-result files
+        if not filename.startswith("results_") or not filename.endswith(".json"):
+            continue
+            
+        # Parse filename: results_{model}_{scenario}_rate{rate}.json
+        # Or: results_{model}_non-cc_{scenario}_rate{rate}.json
+        
+        # Remove 'results_' prefix and '.json' suffix
+        name_part = filename[8:-5]
+        
+        # Check if it's non-cc
+        is_non_cc = "_non-cc_" in name_part
+        
+        # Extract model and scenario
+        if is_non_cc:
+            # Split by '_non-cc_'
+            parts = name_part.split("_non-cc_", 1)
+            model = parts[0]
+            rest = parts[1]
+            
+            # Find rate part in rest
+            rate_pos = rest.rfind("_rate")
+            if rate_pos == -1:
+                print(f"Could not find rate in file: {filename}")
+                continue
+                
+            # Extract scenario name (without rate)
+            scenario_name = rest[:rate_pos]
+            rate_part = rest[rate_pos+1:]  # Include 'rate' part
+            
+            # Reconstruct full scenario name
+            scenario = f"{scenario_name}_{rate_part}"
+        else:
+            # For CC files, find the rate part first
+            rate_pos = name_part.rfind("_rate")
+            if rate_pos == -1:
+                print(f"Could not find rate in file: {filename}")
+                continue
+                
+            # Extract the rate part
+            rate_part = name_part[rate_pos+1:]  # Include the 'rate' part
+            
+            # Everything before the rate part is the model + scenario
+            model_scenario_part = name_part[:rate_pos]
+            
+            # Now we need to separate model from scenario
+            # We look for the longest matching scenario from the end of the string
+            # (e.g., match "edit_10k_char" before "char")
+            scenario_found = None
+            model_part = ""
+            
+            # Sort scenarios by length descending to match longer scenarios first
+            # (e.g., match "edit_10k_char" before "char")
+            sorted_scenarios = sorted(base_scenarios, key=len, reverse=True)
+            
+            for base_scenario in sorted_scenarios:
+                if base_scenario in model_scenario_part:
+                    scenario_found = f"{base_scenario}_{rate_part}"
+                    # Extract model part (everything before the scenario)
+                    scenario_start = model_scenario_part.rfind(base_scenario)
+                    if scenario_start > 0:
+                        model_part = model_scenario_part[:scenario_start-1]  # -1 to remove the underscore
+                    else:
+                        model_part = model_scenario_part
+                    break
+            
+            if scenario_found is None:
+                print(f"Could not determine scenario for file: {filename}")
+                continue
+                
+            model = model_part
+            scenario = scenario_found
+        
+        # Skip excluded models
+        if model in excluded_models:
+            continue
+            
+        # Check if scenario is valid
+        if scenario not in scenarios:
+            # Skip unknown scenarios
+            continue
+        
+        # Determine CC mode
+        mode = 'no_cc' if is_non_cc else 'cc'
+        
+        # Load JSON data
+        json_data = load_json_data(file_path)
+        if json_data:
+            # Initialize model entry if not exists
+            if model not in all_data[scenario][mode]:
+                all_data[scenario][mode][model] = {
+                    'input_throughput': 0,
+                    'output_throughput': 0
+                }
+            
+            # Calculate throughput metrics
+            duration = json_data.get('duration', 1)
+            total_input = json_data.get('total_input_tokens', 0)
+            input_throughput = total_input / duration if duration > 0 else 0
+            total_output = json_data.get('total_output_tokens', 0)
+            output_throughput = total_output / duration if duration > 0 else 0
+            
+            # Update with data from JSON
+            all_data[scenario][mode][model] = {
+                'input_throughput': input_throughput,
+                'output_throughput': output_throughput
+            }
 
     return all_data
 
@@ -158,7 +260,7 @@ def create_all_scenario_plots(all_data):
         except Exception:
             plt.style.use('ggplot')
 
-    pdf = matplotlib.backends.backend_pdf.PdfPages("benchmark_results.pdf")
+    pdf = matplotlib.backends.backend_pdf.PdfPages("results_throughput.pdf")
 
     def format_rate(val: float) -> str:
         # Pretty-print token rates: 12.3k, 1.2M, else integer
@@ -168,12 +270,22 @@ def create_all_scenario_plots(all_data):
             return f"{val/1_000:.1f}k"
         return f"{val:.0f}"
     
-    scenario_titles = {
-        'high_load_64concurrent': 'High Load (64 Concurrent Requests)',
-        'max_throughput_rampup': 'Max Throughput (Rampup)',
-        'medium_load_32concurrent': 'Medium Load (32 Concurrent Requests)',
-        'single_request_sharegpt': 'Single Request (ShareGPT Dataset)'
+    # Create scenario titles for the new naming convention
+    base_scenario_titles = {
+        'random': 'Random (1500 ⇒ 250)',
+        'summarization': 'Random (4000 ⇒ 1000)',
+        'translation': 'Random (1000 ⇒ 1000)',
+        'sharegpt': 'ShareGPT',
+        'edit_10k_char': 'Edit 10K Characters',
+        'numina_math': 'Numina Math',
     }
+    
+    # Generate titles for all scenario_rate combinations
+    scenario_titles = {}
+    for base_scenario, title in base_scenario_titles.items():
+        for rate in [100, 50, 1]:
+            scenario_key = f"{base_scenario}_rate{rate}"
+            scenario_titles[scenario_key] = f"{title} (Rate {rate})"
 
     _, model_order, display_names, model_colors, mode_labels = load_config()
 
@@ -348,7 +460,6 @@ def print_detailed_summary(all_data):
                     if model in data[mode]:
                         print(f"    {model:30} Input: {data[mode][model]['input_throughput']:7.1f}  Output: {data[mode][model]['output_throughput']:7.1f}")
 
-
 def print_performance_overhead(all_data):
     """Print performance overhead between CC and No-CC"""
     print("\n" + "="*80)
@@ -360,7 +471,7 @@ def print_performance_overhead(all_data):
     all_models = set()
     for scenario in all_data.values():
         all_models.update(set(scenario.get('cc', {}).keys()) & set(scenario.get('no_cc', {}).keys()))
-    _, model_order, display_names, _, _ = load_config()
+    _, model_order, display_names, _, mode_labels = load_config()
     all_models = sort_models_by_config(all_models, model_order)
 
     metrics = [
@@ -407,4 +518,4 @@ if __name__ == "__main__":
 
     print_performance_overhead(all_data)
 
-    print("\n✓ All charts saved to: benchmark_results.pdf")
+    print("\n✓ All charts saved to: results_throughput.pdf")
