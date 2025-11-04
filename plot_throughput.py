@@ -445,67 +445,62 @@ def print_detailed_summary(all_data):
     print("DETAILED THROUGHPUT SUMMARY (tokens/second)")
     print("="*80)
 
-    _, _, _, _, mode_labels = load_config()
+    _, model_order, display_names, _, mode_labels = load_config()
 
     for scenario, data in all_data.items():
         print(f"\n{scenario.upper().replace('_', ' ')}")
         print("-"*80)
 
-        for mode in ['cc', 'no_cc']:
-            if mode in data and data[mode]:
-                mode_label = mode_labels[mode]
-                print(f"  {mode_label}:")
-                models = sorted(data[mode].keys())
-                for model in models:
-                    if model in data[mode]:
-                        print(f"    {model:30} Input: {data[mode][model]['input_throughput']:7.1f}  Output: {data[mode][model]['output_throughput']:7.1f}")
+        # Print CC section
+        if 'cc' in data and data['cc']:
+            print(f"  {mode_labels['cc']}:")
+            models = sort_models_by_config(data['cc'].keys(), model_order)
+            for model in models:
+                if model in data['cc']:
+                    display_name = get_display_name(model, display_names)
+                    print(f"    {display_name:30} Input: {data['cc'][model]['input_throughput']:7.1f}  Output: {data['cc'][model]['output_throughput']:7.1f}")
 
-def print_performance_overhead(all_data):
-    """Print performance overhead between CC and No-CC"""
-    print("\n" + "="*80)
-    print("CC VS NO-CC PERFORMANCE OVERHEAD")
-    print("="*80)
-    print("\nFor throughput: Overhead = ((No-CC - CC) / No-CC) * 100%")
-    print("Positive values mean CC has lower throughput (worse)\n")
+        # Print No-CC section
+        if 'no_cc' in data and data['no_cc']:
+            print(f"  {mode_labels['no_cc']}:")
+            models = sort_models_by_config(data['no_cc'].keys(), model_order)
+            for model in models:
+                if model in data['no_cc']:
+                    display_name = get_display_name(model, display_names)
+                    print(f"    {display_name:30} Input: {data['no_cc'][model]['input_throughput']:7.1f}  Output: {data['no_cc'][model]['output_throughput']:7.1f}")
 
-    all_models = set()
-    for scenario in all_data.values():
-        all_models.update(set(scenario.get('cc', {}).keys()) & set(scenario.get('no_cc', {}).keys()))
-    _, model_order, display_names, _, mode_labels = load_config()
-    all_models = sort_models_by_config(all_models, model_order)
-
-    metrics = [
-        ('input_throughput', 'Input Throughput'),
-        ('output_throughput', 'Output Throughput')
-    ]
-
-    for model in all_models:
-        display_name = get_display_name(model, display_names)
-        print(f"\n{display_name}:")
-        print("-"*80)
-
-        for metric_key, metric_label in metrics:
-            overheads = []
-
-            for scenario in all_data.keys():
-                if model in all_data[scenario].get('cc', {}) and model in all_data[scenario].get('no_cc', {}):
-                    cc_val = all_data[scenario]['cc'][model][metric_key]
-                    no_cc_val = all_data[scenario]['no_cc'][model][metric_key]
-
-                    if no_cc_val > 0:
-                        overhead_pct = ((no_cc_val - cc_val) / no_cc_val) * 100
-                        overheads.append(overhead_pct)
-
-            if overheads:
-                mean_overhead = np.mean(overheads)
-                median_overhead = np.median(overheads)
-                min_overhead = np.min(overheads)
-                max_overhead = np.max(overheads)
-
-                print(f"  {metric_label:25} Mean: {mean_overhead:6.2f}%  Median: {median_overhead:6.2f}%  "
-                      f"Range: [{min_overhead:6.2f}%, {max_overhead:6.2f}%]")
-            else:
-                print(f"  {metric_label:25} No data available")
+        # Print CC Overhead section
+        print("  CC Overhead:")
+        # Get all models that appear in both CC and No-CC for this scenario
+        cc_models = set(data.get('cc', {}).keys())
+        no_cc_models = set(data.get('no_cc', {}).keys())
+        common_models = sort_models_by_config(cc_models & no_cc_models, model_order)
+        
+        if common_models:
+            for model in common_models:
+                display_name = get_display_name(model, display_names)
+                cc_input = data['cc'][model]['input_throughput']
+                cc_output = data['cc'][model]['output_throughput']
+                no_cc_input = data['no_cc'][model]['input_throughput']
+                no_cc_output = data['no_cc'][model]['output_throughput']
+                
+                # Calculate overhead: ((No-CC - CC) / No-CC) * 100%
+                # For throughput, positive values mean CC has lower throughput (worse)
+                if no_cc_input > 0:
+                    input_overhead = ((no_cc_input - cc_input) / no_cc_input) * 100
+                    input_overhead_str = f"{input_overhead:+6.1f}%"
+                else:
+                    input_overhead_str = " N/A "
+                    
+                if no_cc_output > 0:
+                    output_overhead = ((no_cc_output - cc_output) / no_cc_output) * 100
+                    output_overhead_str = f"{output_overhead:+6.1f}%"
+                else:
+                    output_overhead_str = " N/A "
+                
+                print(f"    {display_name:30} Input: {input_overhead_str}  Output: {output_overhead_str}")
+        else:
+            print("    No models with both CC and No-CC data")
 
 if __name__ == "__main__":
     print("Collecting throughput data for all scenarios...")
@@ -515,7 +510,5 @@ if __name__ == "__main__":
     create_all_scenario_plots(all_data)
 
     print_detailed_summary(all_data)
-
-    print_performance_overhead(all_data)
 
     print("\n✓ All charts saved to: results_throughput.pdf")

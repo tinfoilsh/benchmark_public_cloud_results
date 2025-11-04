@@ -438,18 +438,62 @@ def print_itl_summary(all_data):
         print(f"\n{scenario.upper().replace('_', ' ')}")
         print("-"*80)
 
-        for mode in ['cc', 'no_cc']:
-            if mode in data and data[mode]:
-                mode_label = mode_labels[mode]
-                print(f"  {mode_label}:")
-                models = sort_models_by_config(data[mode].keys(), model_order)
-                for model in models:
-                    if model in data[mode]:
-                        m = data[mode][model]
-                        display_name = get_display_name(model, display_names)
-                        print(
-                            f"    {display_name:30} Mean: {m['mean_itl']:7.1f}  Median: {m['p50_itl']:7.1f}"
-                        )
+        # Print CC section
+        if 'cc' in data and data['cc']:
+            print(f"  {mode_labels['cc']}:")
+            models = sort_models_by_config(data['cc'].keys(), model_order)
+            for model in models:
+                if model in data['cc']:
+                    m = data['cc'][model]
+                    display_name = get_display_name(model, display_names)
+                    print(
+                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f}  Median: {m['p50_itl']:7.1f}"
+                    )
+
+        # Print No-CC section
+        if 'no_cc' in data and data['no_cc']:
+            print(f"  {mode_labels['no_cc']}:")
+            models = sort_models_by_config(data['no_cc'].keys(), model_order)
+            for model in models:
+                if model in data['no_cc']:
+                    m = data['no_cc'][model]
+                    display_name = get_display_name(model, display_names)
+                    print(
+                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f}  Median: {m['p50_itl']:7.1f}"
+                    )
+
+        # Print CC Overhead section
+        print("  CC Overhead:")
+        # Get all models that appear in both CC and No-CC for this scenario
+        cc_models = set(data.get('cc', {}).keys())
+        no_cc_models = set(data.get('no_cc', {}).keys())
+        common_models = sort_models_by_config(cc_models & no_cc_models, model_order)
+        
+        if common_models:
+            for model in common_models:
+                display_name = get_display_name(model, display_names)
+                cc_mean = data['cc'][model]['mean_itl']
+                cc_median = data['cc'][model]['p50_itl']
+                no_cc_mean = data['no_cc'][model]['mean_itl']
+                no_cc_median = data['no_cc'][model]['p50_itl']
+                
+                # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
+                # For latency, positive values mean CC is slower (worse)
+                if no_cc_mean > 0:
+                    mean_overhead = ((cc_mean - no_cc_mean) / no_cc_mean) * 100
+                    mean_overhead_str = f"{mean_overhead:+6.1f}%"
+                else:
+                    mean_overhead_str = " N/A "
+                    
+                if no_cc_median > 0:
+                    median_overhead = ((cc_median - no_cc_median) / no_cc_median) * 100
+                    median_overhead_str = f"{median_overhead:+6.1f}%"
+                else:
+                    median_overhead_str = " N/A "
+                
+                print(f"    {display_name:30} Mean: {mean_overhead_str}  Median: {median_overhead_str}")
+        else:
+            print("    No models with both CC and No-CC data")
 
 
 def _ratio(cc_val: float, plain_val: float):
@@ -461,100 +505,6 @@ def _ratio(cc_val: float, plain_val: float):
     except Exception:
         return None
 
-
-def print_cc_vs_plain_ratio_ranges(all_data):
-    """Print min/max CC-to-No-CC ratios for key metrics."""
-    metrics = [
-        ('mean_itl', 'Mean'),
-        ('p50_itl', 'Median')
-    ]
-
-    print("\n" + "="*80)
-    print("CC VS NO-CC RATIO RANGES (CC / No-CC)")
-    print("="*80)
-    _, model_order, display_names, _, mode_labels = load_config()
-
-    for scenario, data in all_data.items():
-        cc_models = data.get('cc', {}) or {}
-        no_cc_models = data.get('no_cc', {}) or {}
-        overlapping_models = sort_models_by_config(set(cc_models.keys()) & set(no_cc_models.keys()), model_order)
-
-        print(f"\n{scenario.upper().replace('_', ' ')}")
-        print("-"*80)
-
-        if not overlapping_models:
-            print("  No overlapping models with both CC and No-CC data.")
-            continue
-
-        for key, label in metrics:
-            ratios = []
-            for model in overlapping_models:
-                cc_val = cc_models[model].get(key)
-                no_cc_val = no_cc_models[model].get(key)
-                ratio = _ratio(cc_val, no_cc_val)
-                if ratio is not None:
-                    ratios.append((ratio, model))
-
-            if ratios:
-                min_ratio = min(ratios, key=lambda item: item[0])
-                max_ratio = max(ratios, key=lambda item: item[0])
-                min_display = get_display_name(min_ratio[1], display_names)
-                max_display = get_display_name(max_ratio[1], display_names)
-                print(
-                    f"  {label:>4}: min {min_ratio[0]:7.3f}x ({min_display})  "
-                    f"max {max_ratio[0]:7.3f}x ({max_display})"
-                )
-            else:
-                print(f"  {label:>4}: insufficient data to compute ratio")
-
-
-def print_performance_overhead(all_data):
-    """Print performance overhead between CC and No-CC"""
-    print("\n" + "="*80)
-    print("CC VS NO-CC PERFORMANCE OVERHEAD")
-    print("="*80)
-    print("\nOverhead = ((CC - No-CC) / No-CC) * 100%")
-    print("Positive values mean CC is slower (worse)\n")
-    _, model_order, display_names, _, mode_labels = load_config()
-
-    all_models = set()
-    for scenario in all_data.values():
-        all_models.update(set(scenario.get('cc', {}).keys()) & set(scenario.get('no_cc', {}).keys()))
-    all_models = sort_models_by_config(all_models, model_order)
-
-    metrics = [
-        ('mean_itl', 'Mean ITL (ms)'),
-        ('p50_itl', 'Median ITL (ms)')
-    ]
-
-    for model in all_models:
-        display_name = get_display_name(model, display_names)
-        print(f"\n{display_name}:")
-        print("-"*80)
-
-        for metric_key, metric_label in metrics:
-            overheads = []
-
-            for scenario in all_data.keys():
-                if model in all_data[scenario].get('cc', {}) and model in all_data[scenario].get('no_cc', {}):
-                    cc_val = all_data[scenario]['cc'][model][metric_key]
-                    no_cc_val = all_data[scenario]['no_cc'][model][metric_key]
-
-                    if no_cc_val > 0:
-                        overhead_pct = ((cc_val - no_cc_val) / no_cc_val) * 100
-                        overheads.append(overhead_pct)
-
-            if overheads:
-                mean_overhead = np.mean(overheads)
-                median_overhead = np.median(overheads)
-                min_overhead = np.min(overheads)
-                max_overhead = np.max(overheads)
-
-                print(f"  {metric_label:25} Mean: {mean_overhead:6.2f}%  Median: {median_overhead:6.2f}%  "
-                      f"Range: [{min_overhead:6.2f}%, {max_overhead:6.2f}%]")
-            else:
-                print(f"  {metric_label:25} No data available")
-
 if __name__ == "__main__":
     print("Collecting ITL data for all scenarios...")
     all_data = collect_itl_data()
@@ -563,9 +513,5 @@ if __name__ == "__main__":
     create_itl_plots(all_data)
 
     print_itl_summary(all_data)
-
-    print_cc_vs_plain_ratio_ranges(all_data)
-
-    print_performance_overhead(all_data)
 
     print("\n✓ All ITL charts saved to: results_itl.pdf")

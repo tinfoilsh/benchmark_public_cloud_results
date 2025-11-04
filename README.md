@@ -1,6 +1,6 @@
 # Benchmark Public Cloud Results
 
-This repository contains scripts for analyzing and visualizing benchmark results for Tinfoil model inference services collected using [tinfoilsh/benchmark_public_cloud](https://github.com/tinfoilsh/benchmark_public_cloud)
+This repository contains scripts for analyzing and visualizing benchmark results for Tinfoil model inference services collected using [tinfoilsh/benchmark_public_cloud](https://github.com/tinfoilsh/benchmark_public_cloud).
 
 ## Overview
 

@@ -434,68 +434,65 @@ def print_latency_summary(all_data):
     for scenario, data in all_data.items():
         print(f"\n{scenario.upper().replace('_', ' ')}")
         print("-"*80)
-        for mode in ['cc', 'no_cc']:
-            if mode in data and data[mode]:
-                mode_label = mode_labels[mode]
-                print(f"  {mode_label}:")
-                models = sort_models_by_config(data[mode].keys(), model_order)
-                for model in models:
-                    if model in data[mode]:
-                        m = data[mode][model]
-                        display_name = get_display_name(model, display_names)
-                        print(
-                            f"    {display_name:30} TTFT: {m['mean_ttft_ms']:8.2f} ± {m['std_ttft_ms']:7.2f}   "
-                            f"E2E: {m['mean_e2el_ms']:8.2f} ± {m['std_e2el_ms']:7.2f}"
-                        )
+        
+        # Print CC section
+        if 'cc' in data and data['cc']:
+            print(f"  {mode_labels['cc']}:")
+            models = sort_models_by_config(data['cc'].keys(), model_order)
+            for model in models:
+                if model in data['cc']:
+                    m = data['cc'][model]
+                    display_name = get_display_name(model, display_names)
+                    print(
+                        f"    {display_name:30} TTFT: {m['mean_ttft_ms']:8.2f} ± {m['std_ttft_ms']:7.2f}   "
+                        f"E2E: {m['mean_e2el_ms']:8.2f} ± {m['std_e2el_ms']:7.2f}"
+                    )
 
+        # Print No-CC section
+        if 'no_cc' in data and data['no_cc']:
+            print(f"  {mode_labels['no_cc']}:")
+            models = sort_models_by_config(data['no_cc'].keys(), model_order)
+            for model in models:
+                if model in data['no_cc']:
+                    m = data['no_cc'][model]
+                    display_name = get_display_name(model, display_names)
+                    print(
+                        f"    {display_name:30} TTFT: {m['mean_ttft_ms']:8.2f} ± {m['std_ttft_ms']:7.2f}   "
+                        f"E2E: {m['mean_e2el_ms']:8.2f} ± {m['std_e2el_ms']:7.2f}"
+                    )
 
-def print_performance_overhead(all_data):
-    """Print performance overhead between CC and No-CC"""
-    print("\n" + "="*80)
-    print("CC VS NO-CC PERFORMANCE OVERHEAD")
-    print("="*80)
-    print("\nOverhead = ((CC - No-CC) / No-CC) * 100%")
-    print("Positive values mean CC is slower (worse)\n")
-    _, model_order, display_names, _, mode_labels = load_config()
-
-    all_models = set()
-    for scenario in all_data.values():
-        all_models.update(set(scenario.get('cc', {}).keys()) & set(scenario.get('no_cc', {}).keys()))
-    all_models = sort_models_by_config(all_models, model_order)
-
-    metrics = [
-        ('mean_ttft_ms', 'TTFT (ms)'),
-        ('mean_e2el_ms', 'E2E Latency (ms)')
-    ]
-
-    for model in all_models:
-        display_name = get_display_name(model, display_names)
-        print(f"\n{display_name}:")
-        print("-"*80)
-
-        for metric_key, metric_label in metrics:
-            overheads = []
-
-            for scenario in all_data.keys():
-                if model in all_data[scenario].get('cc', {}) and model in all_data[scenario].get('no_cc', {}):
-                    cc_val = all_data[scenario]['cc'][model][metric_key]
-                    no_cc_val = all_data[scenario]['no_cc'][model][metric_key]
-
-                    if no_cc_val > 0:
-                        overhead_pct = ((cc_val - no_cc_val) / no_cc_val) * 100
-                        overheads.append(overhead_pct)
-
-            if overheads:
-                mean_overhead = np.mean(overheads)
-                median_overhead = np.median(overheads)
-                min_overhead = np.min(overheads)
-                max_overhead = np.max(overheads)
-
-                print(f"  {metric_label:25} Mean: {mean_overhead:6.2f}%  Median: {median_overhead:6.2f}%  "
-                      f"Range: [{min_overhead:6.2f}%, {max_overhead:6.2f}%]")
-            else:
-                print(f"  {metric_label:25} No data available")
-
+        # Print CC Overhead section
+        print("  CC Overhead:")
+        # Get all models that appear in both CC and No-CC for this scenario
+        cc_models = set(data.get('cc', {}).keys())
+        no_cc_models = set(data.get('no_cc', {}).keys())
+        common_models = sort_models_by_config(cc_models & no_cc_models, model_order)
+        
+        if common_models:
+            for model in common_models:
+                display_name = get_display_name(model, display_names)
+                cc_ttft = data['cc'][model]['mean_ttft_ms']
+                cc_e2e = data['cc'][model]['mean_e2el_ms']
+                no_cc_ttft = data['no_cc'][model]['mean_ttft_ms']
+                no_cc_e2e = data['no_cc'][model]['mean_e2el_ms']
+                
+                # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
+                # For latency, positive values mean CC is slower (worse)
+                if no_cc_ttft > 0:
+                    ttft_overhead = ((cc_ttft - no_cc_ttft) / no_cc_ttft) * 100
+                    ttft_overhead_str = f"{ttft_overhead:+6.1f}%"
+                else:
+                    ttft_overhead_str = " N/A "
+                    
+                if no_cc_e2e > 0:
+                    e2e_overhead = ((cc_e2e - no_cc_e2e) / no_cc_e2e) * 100
+                    e2e_overhead_str = f"{e2e_overhead:+6.1f}%"
+                else:
+                    e2e_overhead_str = " N/A "
+                
+                print(f"    {display_name:30} TTFT: {ttft_overhead_str}  E2E: {e2e_overhead_str}")
+        else:
+            print("    No models with both CC and No-CC data")
 
 if __name__ == "__main__":
     print("Collecting latency data for all scenarios...")
@@ -505,7 +502,5 @@ if __name__ == "__main__":
     create_latency_plots(all_data)
 
     print_latency_summary(all_data)
-
-    print_performance_overhead(all_data)
 
     print("\n✓ All latency charts saved to: results_latency.pdf")

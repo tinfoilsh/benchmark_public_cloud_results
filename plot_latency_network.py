@@ -396,79 +396,65 @@ def print_network_latency_summary(all_data):
     for scenario, data in all_data.items():
         print(f"\n{scenario.upper().replace('_', ' ')}")
         print("-"*80)
-        for mode in ['cc', 'no_cc']:
-            if mode in data and data[mode]:
-                mode_label = mode_labels[mode]
-                print(f"  {mode_label}:")
-                models = sort_models_by_config(data[mode].keys(), model_order)
-                for model in models:
-                    if model in data[mode]:
-                        m = data[mode][model]
-                        display_name = get_display_name(model, display_names)
-                        print(
-                            f"    {display_name:30} Base E2E: {m['base_e2el_ms']:8.2f}  "
-                            f"With Network: {m['network_e2el_ms']:8.2f}"
-                        )
+        
+        # Print CC section
+        if 'cc' in data and data['cc']:
+            print(f"  {mode_labels['cc']}:")
+            models = sort_models_by_config(data['cc'].keys(), model_order)
+            for model in models:
+                if model in data['cc']:
+                    m = data['cc'][model]
+                    display_name = get_display_name(model, display_names)
+                    print(
+                        f"    {display_name:30} Base E2E: {m['base_e2el_ms']:8.2f}  "
+                        f"With Network: {m['network_e2el_ms']:8.2f}"
+                    )
 
+        # Print No-CC section
+        if 'no_cc' in data and data['no_cc']:
+            print(f"  {mode_labels['no_cc']}:")
+            models = sort_models_by_config(data['no_cc'].keys(), model_order)
+            for model in models:
+                if model in data['no_cc']:
+                    m = data['no_cc'][model]
+                    display_name = get_display_name(model, display_names)
+                    print(
+                        f"    {display_name:30} Base E2E: {m['base_e2el_ms']:8.2f}  "
+                        f"With Network: {m['network_e2el_ms']:8.2f}"
+                    )
 
-def print_performance_overhead(all_data):
-    """Print performance overhead between CC and No-CC with network latency"""
-    print("\n" + "="*80)
-    print("CC VS NO-CC PERFORMANCE OVERHEAD (with network latency)")
-    print("="*80)
-    print("\nOverhead = ((CC - No-CC) / No-CC) * 100%")
-    print("Positive values mean CC is slower (worse)\n")
-    _, model_order, display_names, _, mode_labels = load_config()
-
-    all_models = set()
-    for scenario in all_data.values():
-        all_models.update(set(scenario.get('cc', {}).keys()) & set(scenario.get('no_cc', {}).keys()))
-    all_models = sort_models_by_config(all_models, model_order)
-
-    for model in all_models:
-        display_name = get_display_name(model, display_names)
-        print(f"\n{display_name}:")
-        print("-"*80)
-
-        base_overheads = []
-        network_overheads = []
-
-        for scenario in all_data.keys():
-            if model in all_data[scenario].get('cc', {}) and model in all_data[scenario].get('no_cc', {}):
-                cc_base = all_data[scenario]['cc'][model]['base_e2el_ms']
-                no_cc_base = all_data[scenario]['no_cc'][model]['base_e2el_ms']
-                cc_network = all_data[scenario]['cc'][model]['network_e2el_ms']
-                no_cc_network = all_data[scenario]['no_cc'][model]['network_e2el_ms']
-
+        # Print CC Overhead section
+        print("  CC Overhead:")
+        # Get all models that appear in both CC and No-CC for this scenario
+        cc_models = set(data.get('cc', {}).keys())
+        no_cc_models = set(data.get('no_cc', {}).keys())
+        common_models = sort_models_by_config(cc_models & no_cc_models, model_order)
+        
+        if common_models:
+            for model in common_models:
+                display_name = get_display_name(model, display_names)
+                cc_base = data['cc'][model]['base_e2el_ms']
+                cc_network = data['cc'][model]['network_e2el_ms']
+                no_cc_base = data['no_cc'][model]['base_e2el_ms']
+                no_cc_network = data['no_cc'][model]['network_e2el_ms']
+                
+                # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
+                # For latency, positive values mean CC is slower (worse)
                 if no_cc_base > 0:
                     base_overhead = ((cc_base - no_cc_base) / no_cc_base) * 100
-                    base_overheads.append(base_overhead)
-
+                    base_overhead_str = f"{base_overhead:+6.1f}%"
+                else:
+                    base_overhead_str = " N/A "
+                    
                 if no_cc_network > 0:
                     network_overhead = ((cc_network - no_cc_network) / no_cc_network) * 100
-                    network_overheads.append(network_overhead)
-
-        if base_overheads:
-            mean_base = np.mean(base_overheads)
-            median_base = np.median(base_overheads)
-            min_base = np.min(base_overheads)
-            max_base = np.max(base_overheads)
-
-            print(f"  {'Base E2E Latency':25} Mean: {mean_base:6.2f}%  Median: {median_base:6.2f}%  "
-                  f"Range: [{min_base:6.2f}%, {max_base:6.2f}%]")
-
-        if network_overheads:
-            mean_network = np.mean(network_overheads)
-            median_network = np.median(network_overheads)
-            min_network = np.min(network_overheads)
-            max_network = np.max(network_overheads)
-
-            print(f"  {'With Network Latency':25} Mean: {mean_network:6.2f}%  Median: {median_network:6.2f}%  "
-                  f"Range: [{min_network:6.2f}%, {max_network:6.2f}%]")
-
-            if base_overheads and network_overheads:
-                reduction = mean_base - mean_network
-                print(f"  {'Overhead Reduction':25} {reduction:6.2f}% (network latency reduces relative overhead)")
+                    network_overhead_str = f"{network_overhead:+6.1f}%"
+                else:
+                    network_overhead_str = " N/A "
+                
+                print(f"    {display_name:30} Base E2E: {base_overhead_str}  With Network: {network_overhead_str}")
+        else:
+            print("    No models with both CC and No-CC data")
 
 
 if __name__ == "__main__":
@@ -479,7 +465,5 @@ if __name__ == "__main__":
     create_network_latency_plots(all_data)
 
     print_network_latency_summary(all_data)
-
-    print_performance_overhead(all_data)
 
     print(f"\n✓ All network latency charts saved to: results_network_latency.pdf")
