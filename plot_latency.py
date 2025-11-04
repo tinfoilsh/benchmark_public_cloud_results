@@ -248,8 +248,10 @@ def collect_latency_data():
             all_data[scenario][mode][model] = {
                 'mean_ttft_ms': float(json_data.get('mean_ttft_ms', 0) or 0),
                 'std_ttft_ms': float(json_data.get('std_ttft_ms', 0) or 0),
+                'p99_ttft_ms': float(json_data.get('p99_ttft_ms', 0) or 0),
                 'mean_e2el_ms': float(json_data.get('mean_e2el_ms', 0) or 0),
                 'std_e2el_ms': float(json_data.get('std_e2el_ms', 0) or 0),
+                'p99_e2el_ms': float(json_data.get('p99_e2el_ms', 0) or 0),
             }
 
     return all_data
@@ -327,14 +329,17 @@ def create_latency_plots(all_data):
             for i, m in enumerate(models_without_color):
                 page_model_colors[m] = page_palette[i]
 
-        fig, (ax_ttft, ax_e2e) = plt.subplots(1, 2, figsize=(16, 8))
+        # Create figure with 2 rows and 2 columns for mean and p99 plots
+        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+        ax_ttft_mean, ax_e2e_mean = axes[0]
+        ax_ttft_p99, ax_e2e_p99 = axes[1]
 
         cc_models = set(all_data[scenario].get('cc', {}).keys())
         no_cc_models = set(all_data[scenario].get('no_cc', {}).keys())
         union_models = sort_models_by_config(cc_models | no_cc_models, model_order)
 
-        # TTFT (CC vs No CC per model)
-        ax = ax_ttft
+        # TTFT Mean (CC vs No CC per model)
+        ax = ax_ttft_mean
         ax.set_facecolor('#fafafa')
         if union_models:
             x_pos = np.arange(len(union_models))
@@ -355,7 +360,7 @@ def create_latency_plots(all_data):
             _annotate_bars(ax, bars_no_cc, vals_no_cc)
             ax.set_xticks([])
         ax.set_ylabel('TTFT (ms)', fontsize=12, fontfamily='serif')
-        ax.set_title('Time to First Token', fontsize=14, fontweight='bold', fontfamily='serif')
+        ax.set_title('Time to First Token (Mean)', fontsize=14, fontweight='bold', fontfamily='serif')
         for tick in ax.get_yticklabels():
             tick.set_fontfamily('serif')
         ax.grid(axis='y')
@@ -365,8 +370,8 @@ def create_latency_plots(all_data):
         ax.spines['left'].set_alpha(0.3)
         ax.spines['bottom'].set_alpha(0.3)
 
-        # E2E (CC vs No CC per model)
-        ax = ax_e2e
+        # E2E Mean (CC vs No CC per model)
+        ax = ax_e2e_mean
         ax.set_facecolor('#fafafa')
         if union_models:
             x_pos = np.arange(len(union_models))
@@ -387,7 +392,67 @@ def create_latency_plots(all_data):
             _annotate_bars(ax, bars_no_cc, vals_no_cc)
             ax.set_xticks([])
         ax.set_ylabel('E2E Latency (ms)', fontsize=12, fontfamily='serif')
-        ax.set_title('End-to-End Latency', fontsize=14, fontweight='bold', fontfamily='serif')
+        ax.set_title('End-to-End Latency (Mean)', fontsize=14, fontweight='bold', fontfamily='serif')
+        for tick in ax.get_yticklabels():
+            tick.set_fontfamily('serif')
+        ax.grid(axis='y')
+        ax.margins(y=0.15)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_alpha(0.3)
+        ax.spines['bottom'].set_alpha(0.3)
+
+        # TTFT P99 (CC vs No CC per model)
+        ax = ax_ttft_p99
+        ax.set_facecolor('#fafafa')
+        if union_models:
+            x_pos = np.arange(len(union_models))
+            width = 0.35
+            vals_cc = [all_data[scenario]['cc'][m]['p99_ttft_ms'] if m in all_data[scenario].get('cc', {}) else 0 for m in union_models]
+            colors = [page_model_colors.get(m) for m in union_models]
+            bars_cc = ax.bar(x_pos - width/2, vals_cc, width,
+                             color=colors, alpha=0.95, edgecolor=colors, linewidth=0, zorder=3)
+            hatch_color = '#333333'
+            ax.bar(x_pos - width/2, vals_cc, width,
+                   facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4)
+            _annotate_bars(ax, bars_cc, vals_cc)
+            vals_no_cc = [all_data[scenario]['no_cc'][m]['p99_ttft_ms'] if m in all_data[scenario].get('no_cc', {}) else 0 for m in union_models]
+            bars_no_cc = ax.bar(x_pos + width/2, vals_no_cc, width,
+                                color=colors, alpha=0.95, edgecolor=colors, linewidth=0, zorder=3)
+            _annotate_bars(ax, bars_no_cc, vals_no_cc)
+            ax.set_xticks([])
+        ax.set_ylabel('TTFT (ms)', fontsize=12, fontfamily='serif')
+        ax.set_title('Time to First Token (P99)', fontsize=14, fontweight='bold', fontfamily='serif')
+        for tick in ax.get_yticklabels():
+            tick.set_fontfamily('serif')
+        ax.grid(axis='y')
+        ax.margins(y=0.15)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_alpha(0.3)
+        ax.spines['bottom'].set_alpha(0.3)
+
+        # E2E P99 (CC vs No CC per model)
+        ax = ax_e2e_p99
+        ax.set_facecolor('#fafafa')
+        if union_models:
+            x_pos = np.arange(len(union_models))
+            width = 0.35
+            vals_cc = [all_data[scenario]['cc'][m]['p99_e2el_ms'] if m in all_data[scenario].get('cc', {}) else 0 for m in union_models]
+            colors = [page_model_colors.get(m) for m in union_models]
+            bars_cc = ax.bar(x_pos - width/2, vals_cc, width,
+                             color=colors, alpha=0.95, edgecolor=colors, linewidth=0, zorder=3)
+            hatch_color = '#333333'
+            ax.bar(x_pos - width/2, vals_cc, width,
+                   facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4)
+            _annotate_bars(ax, bars_cc, vals_cc)
+            vals_no_cc = [all_data[scenario]['no_cc'][m]['p99_e2el_ms'] if m in all_data[scenario].get('no_cc', {}) else 0 for m in union_models]
+            bars_no_cc = ax.bar(x_pos + width/2, vals_no_cc, width,
+                                color=colors, alpha=0.95, edgecolor=colors, linewidth=0, zorder=3)
+            _annotate_bars(ax, bars_no_cc, vals_no_cc)
+            ax.set_xticks([])
+        ax.set_ylabel('E2E Latency (ms)', fontsize=12, fontfamily='serif')
+        ax.set_title('End-to-End Latency (P99)', fontsize=14, fontweight='bold', fontfamily='serif')
         for tick in ax.get_yticklabels():
             tick.set_fontfamily('serif')
         ax.grid(axis='y')
@@ -405,14 +470,14 @@ def create_latency_plots(all_data):
             Patch(facecolor='#777777', label=mode_labels['no_cc'])
         ]
         fig.legend(handles=cc_style_elements, loc='lower center', ncol=2,
-                   fontsize=9, bbox_to_anchor=(0.5, 0.16), borderaxespad=1.0,
+                   fontsize=9, bbox_to_anchor=(0.5, 0.12), borderaxespad=1.0,
                    prop={'family': 'serif'})
         fig.legend(handles=model_legend_elements, loc='lower center', ncol=ncols,
-                   fontsize=8, bbox_to_anchor=(0.5, 0.08), borderaxespad=1.0,
+                   fontsize=8, bbox_to_anchor=(0.5, 0.06), borderaxespad=1.0,
                    prop={'family': 'serif'})
         plt.suptitle(f"{scenario_titles.get(scenario, scenario)}", fontsize=16,
                      fontweight='bold', y=0.96, fontfamily='serif')
-        plt.subplots_adjust(top=0.88, bottom=0.24, left=0.06, right=0.98, wspace=0.25)
+        plt.subplots_adjust(top=0.90, bottom=0.18, left=0.06, right=0.98, hspace=0.3)
         try:
             if have_sns:
                 sns.despine(fig=fig)
@@ -426,14 +491,14 @@ def create_latency_plots(all_data):
 
 
 def print_latency_summary(all_data):
-    print("\n" + "="*80)
+    print("\n" + "="*100)
     print("DETAILED LATENCY SUMMARY (ms)")
-    print("="*80)
+    print("="*100)
     _, model_order, display_names, _, mode_labels = load_config()
 
     for scenario, data in all_data.items():
         print(f"\n{scenario.upper().replace('_', ' ')}")
-        print("-"*80)
+        print("-"*100)
         
         # Print CC section
         if 'cc' in data and data['cc']:
@@ -444,8 +509,8 @@ def print_latency_summary(all_data):
                     m = data['cc'][model]
                     display_name = get_display_name(model, display_names)
                     print(
-                        f"    {display_name:30} TTFT: {m['mean_ttft_ms']:8.2f} ± {m['std_ttft_ms']:7.2f}   "
-                        f"E2E: {m['mean_e2el_ms']:8.2f} ± {m['std_e2el_ms']:7.2f}"
+                        f"    {display_name:30} TTFT: {m['mean_ttft_ms']:8.2f} ± {m['std_ttft_ms']:7.2f} (p99: {m['p99_ttft_ms']:8.2f})   "
+                        f"E2E: {m['mean_e2el_ms']:8.2f} ± {m['std_e2el_ms']:7.2f} (p99: {m['p99_e2el_ms']:8.2f})"
                     )
 
         # Print No-CC section
@@ -457,12 +522,12 @@ def print_latency_summary(all_data):
                     m = data['no_cc'][model]
                     display_name = get_display_name(model, display_names)
                     print(
-                        f"    {display_name:30} TTFT: {m['mean_ttft_ms']:8.2f} ± {m['std_ttft_ms']:7.2f}   "
-                        f"E2E: {m['mean_e2el_ms']:8.2f} ± {m['std_e2el_ms']:7.2f}"
+                        f"    {display_name:30} TTFT: {m['mean_ttft_ms']:8.2f} ± {m['std_ttft_ms']:7.2f} (p99: {m['p99_ttft_ms']:8.2f})   "
+                        f"E2E: {m['mean_e2el_ms']:8.2f} ± {m['std_e2el_ms']:7.2f} (p99: {m['p99_e2el_ms']:8.2f})"
                     )
 
-        # Print CC Overhead section
-        print("  CC Overhead:")
+        # Print CC Overhead section (mean and p99)
+        print("  CC Overhead (Mean):")
         # Get all models that appear in both CC and No-CC for this scenario
         cc_models = set(data.get('cc', {}).keys())
         no_cc_models = set(data.get('no_cc', {}).keys())
@@ -475,6 +540,34 @@ def print_latency_summary(all_data):
                 cc_e2e = data['cc'][model]['mean_e2el_ms']
                 no_cc_ttft = data['no_cc'][model]['mean_ttft_ms']
                 no_cc_e2e = data['no_cc'][model]['mean_e2el_ms']
+                
+                # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
+                # For latency, positive values mean CC is slower (worse)
+                if no_cc_ttft > 0:
+                    ttft_overhead = ((cc_ttft - no_cc_ttft) / no_cc_ttft) * 100
+                    ttft_overhead_str = f"{ttft_overhead:+6.1f}%"
+                else:
+                    ttft_overhead_str = " N/A "
+                    
+                if no_cc_e2e > 0:
+                    e2e_overhead = ((cc_e2e - no_cc_e2e) / no_cc_e2e) * 100
+                    e2e_overhead_str = f"{e2e_overhead:+6.1f}%"
+                else:
+                    e2e_overhead_str = " N/A "
+                
+                print(f"    {display_name:30} TTFT: {ttft_overhead_str}  E2E: {e2e_overhead_str}")
+        else:
+            print("    No models with both CC and No-CC data")
+
+        # Print CC Overhead section (p99)
+        print("  CC Overhead (P99):")
+        if common_models:
+            for model in common_models:
+                display_name = get_display_name(model, display_names)
+                cc_ttft = data['cc'][model]['p99_ttft_ms']
+                cc_e2e = data['cc'][model]['p99_e2el_ms']
+                no_cc_ttft = data['no_cc'][model]['p99_ttft_ms']
+                no_cc_e2e = data['no_cc'][model]['p99_e2el_ms']
                 
                 # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
                 # For latency, positive values mean CC is slower (worse)

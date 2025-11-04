@@ -1,0 +1,20 @@
+{
+  "model_colors": {
+    "llama3-1-8b": "#15382E",
+    "mistral-3-1-24b": "#29705C",
+    "gpt-oss-120b": "#3EA789",
+    "llama3-3-70b-int4": "#8FD6C2"
+  },
+  "model_order": [
+    "llama3-1-8b",
+    "mistral-3-1-24b",
+    "gpt-oss-120b",
+    "llama3-3-70b-int4"
+  ],
+  "model_display_names": {
+    "gpt-oss-120b": "GPT OSS 120B",
+    "llama3-1-8b": "LLama 3.1 8B",
+    "llama3-3-70b-int4": "LLama 3.3 70B Int4",
+    "mistral-3-1-24b": "Mistral 3.1 24B"
+  }
+}

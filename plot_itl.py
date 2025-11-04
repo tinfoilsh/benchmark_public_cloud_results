@@ -293,8 +293,6 @@ def create_itl_plots(all_data):
             scenario_titles[scenario_key] = f"{title} (Rate {rate})"
 
     for scenario, data in all_data.items():
-        x = np.arange(2)
-
         models_present = (
             set(all_data[scenario].get('cc', {}).keys()) |
             set(all_data[scenario].get('no_cc', {}).keys())
@@ -329,12 +327,14 @@ def create_itl_plots(all_data):
             for i, m in enumerate(models_without_color):
                 page_model_colors[m] = page_palette[i]
 
-        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-        ax.set_facecolor('#fafafa')
+        # Create figure with 2 subplots for Mean and P99
+        fig, axes = plt.subplots(1, 2, figsize=(12, 8))
         cc_models = set(all_data[scenario].get('cc', {}).keys())
         no_cc_models = set(all_data[scenario].get('no_cc', {}).keys())
         union_models = sort_models_by_config(cc_models | no_cc_models, model_order)
         n_models = max(1, len(union_models))
+        
+        # Common parameters for all subplots
         pair_gap_ratio = 0.0
         group_gap_ratio = 0.60
         denom = (2 * n_models) + (n_models - 1) * group_gap_ratio
@@ -344,20 +344,22 @@ def create_itl_plots(all_data):
         total_span = n_models * pair_width + (n_models - 1) * group_gap
         base_start = -total_span / 2.0
 
+        # Plot Mean ITL
+        ax = axes[0]
+        ax.set_facecolor('#fafafa')
+        ax.set_title('Mean ITL', fontsize=14, fontweight='bold', fontfamily='serif')
+        x = np.array([0])  # Single position for Mean
+        
         for j, model in enumerate(union_models):
             group_left = base_start + j * (pair_width + group_gap)
             cc_center = group_left + bar_width / 2.0
             plain_center = group_left + (3 * bar_width) / 2.0 + pair_gap_ratio * bar_width / 2.0
 
-            cc_values = [
-                all_data[scenario]['cc'][model]['mean_itl'] if model in all_data[scenario].get('cc', {}) else 0,
-                all_data[scenario]['cc'][model]['p50_itl'] if model in all_data[scenario].get('cc', {}) else 0
-            ]
+            cc_value = all_data[scenario]['cc'][model]['mean_itl'] if model in all_data[scenario].get('cc', {}) else 0
             mcolor = page_model_colors.get(model)
-            display_name = get_display_name(model, display_names)
-            cc_bars = ax.bar(
-                x + cc_center, cc_values, bar_width,
-                label=f'{display_name} ({mode_labels["cc"]})',
+            cc_bar = ax.bar(
+                x + cc_center, [cc_value], bar_width,
+                label=f'{get_display_name(model, display_names)} ({mode_labels["cc"]})',
                 color=mcolor,
                 alpha=0.95,
                 edgecolor=mcolor,
@@ -366,30 +368,39 @@ def create_itl_plots(all_data):
             )
             hatch_color = '#333333'
             ax.bar(
-                x + cc_center, cc_values, bar_width,
+                x + cc_center, [cc_value], bar_width,
                 facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4
             )
-            _annotate_bars(ax, cc_bars, cc_values)
+            # Annotate the bar directly
+            if cc_value > 0:
+                ax.text(
+                    cc_center, cc_value,
+                    _format_ms(cc_value),
+                    ha='center', va='bottom', fontsize=8, color='#222222'
+                )
 
             if model in no_cc_models:
-                no_cc_values = [
-                    all_data[scenario]['no_cc'][model]['mean_itl'] if model in all_data[scenario].get('no_cc', {}) else 0,
-                    all_data[scenario]['no_cc'][model]['p50_itl'] if model in all_data[scenario].get('no_cc', {}) else 0
-                ]
-                no_cc_bars = ax.bar(
-                    x + plain_center, no_cc_values, bar_width,
-                    label=f'{display_name} ({mode_labels["no_cc"]})',
+                no_cc_value = all_data[scenario]['no_cc'][model]['mean_itl'] if model in all_data[scenario].get('no_cc', {}) else 0
+                no_cc_bar = ax.bar(
+                    x + plain_center, [no_cc_value], bar_width,
+                    label=f'{get_display_name(model, display_names)} ({mode_labels["no_cc"]})',
                     color=mcolor,
                     alpha=0.95,
                     edgecolor=mcolor,
                     linewidth=0,
                     zorder=3
                 )
-                _annotate_bars(ax, no_cc_bars, no_cc_values)
+                # Annotate the bar directly
+                if no_cc_value > 0:
+                    ax.text(
+                        plain_center, no_cc_value,
+                        _format_ms(no_cc_value),
+                        ha='center', va='bottom', fontsize=8, color='#222222'
+                    )
+                
         ax.set_ylabel('Inter-Token Latency (ms)', fontsize=12, fontfamily='serif')
-        ax.set_xticks(x)
-        ax.set_xticklabels(['Mean', 'Median'], fontfamily='serif')
-        for tick in ax.get_xticklabels() + ax.get_yticklabels():
+        ax.set_xticks([])
+        for tick in ax.get_yticklabels():
             tick.set_fontfamily('serif')
         ax.grid(axis='y')
         ax.margins(y=0.15)
@@ -398,6 +409,70 @@ def create_itl_plots(all_data):
         ax.spines['left'].set_alpha(0.3)
         ax.spines['bottom'].set_alpha(0.3)
 
+        # Plot P99 ITL
+        ax = axes[1]
+        ax.set_facecolor('#fafafa')
+        ax.set_title('P99 ITL', fontsize=14, fontweight='bold', fontfamily='serif')
+        x = np.array([0])  # Single position for P99
+        
+        for j, model in enumerate(union_models):
+            group_left = base_start + j * (pair_width + group_gap)
+            cc_center = group_left + bar_width / 2.0
+            plain_center = group_left + (3 * bar_width) / 2.0 + pair_gap_ratio * bar_width / 2.0
+
+            cc_value = all_data[scenario]['cc'][model]['p99_itl'] if model in all_data[scenario].get('cc', {}) else 0
+            mcolor = page_model_colors.get(model)
+            cc_bar = ax.bar(
+                x + cc_center, [cc_value], bar_width,
+                color=mcolor,
+                alpha=0.95,
+                edgecolor=mcolor,
+                linewidth=0,
+                zorder=3
+            )
+            hatch_color = '#333333'
+            ax.bar(
+                x + cc_center, [cc_value], bar_width,
+                facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4
+            )
+            # Annotate the bar directly
+            if cc_value > 0:
+                ax.text(
+                    cc_center, cc_value,
+                    _format_ms(cc_value),
+                    ha='center', va='bottom', fontsize=8, color='#222222'
+                )
+
+            if model in no_cc_models:
+                no_cc_value = all_data[scenario]['no_cc'][model]['p99_itl'] if model in all_data[scenario].get('no_cc', {}) else 0
+                no_cc_bar = ax.bar(
+                    x + plain_center, [no_cc_value], bar_width,
+                    color=mcolor,
+                    alpha=0.95,
+                    edgecolor=mcolor,
+                    linewidth=0,
+                    zorder=3
+                )
+                # Annotate the bar directly
+                if no_cc_value > 0:
+                    ax.text(
+                        plain_center, no_cc_value,
+                        _format_ms(no_cc_value),
+                        ha='center', va='bottom', fontsize=8, color='#222222'
+                    )
+                
+        ax.set_ylabel('Inter-Token Latency (ms)', fontsize=12, fontfamily='serif')
+        ax.set_xticks([])
+        for tick in ax.get_yticklabels():
+            tick.set_fontfamily('serif')
+        ax.grid(axis='y')
+        ax.margins(y=0.15)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_alpha(0.3)
+        ax.spines['bottom'].set_alpha(0.3)
+
+        # Add legends
         from matplotlib.patches import Patch
         model_legend_elements = [Patch(facecolor=page_model_colors.get(m), label=get_display_name(m, display_names)) for m in union_models]
         ncols = max(3, min(len(model_legend_elements), 6)) if model_legend_elements else 3
@@ -406,14 +481,14 @@ def create_itl_plots(all_data):
             Patch(facecolor='#777777', label=mode_labels['no_cc'])
         ]
         fig.legend(handles=cc_style_elements, loc='lower center', ncol=2,
-                   fontsize=9, bbox_to_anchor=(0.5, 0.16), borderaxespad=1.0,
+                   fontsize=9, bbox_to_anchor=(0.5, 0.12), borderaxespad=1.0,
                    prop={'family': 'serif'})
         fig.legend(handles=model_legend_elements, loc='lower center', ncol=ncols,
-                   fontsize=8, bbox_to_anchor=(0.5, 0.08), borderaxespad=1.0,
+                   fontsize=8, bbox_to_anchor=(0.5, 0.06), borderaxespad=1.0,
                    prop={'family': 'serif'})
         plt.suptitle(f"{scenario_titles.get(scenario, scenario)}", fontsize=16,
                      fontweight='bold', y=0.96, fontfamily='serif')
-        plt.subplots_adjust(top=0.88, bottom=0.26, left=0.08, right=0.95)
+        plt.subplots_adjust(top=0.88, bottom=0.18, left=0.06, right=0.98, wspace=0.25)
         try:
             if have_sns:
                 sns.despine(fig=fig)
@@ -429,14 +504,14 @@ def create_itl_plots(all_data):
 
 def print_itl_summary(all_data):
     """Print detailed summary statistics for all scenarios"""
-    print("\n" + "="*80)
+    print("\n" + "="*100)
     print("DETAILED ITL SUMMARY (milliseconds)")
-    print("="*80)
+    print("="*100)
     _, model_order, display_names, _, mode_labels = load_config()
 
     for scenario, data in all_data.items():
         print(f"\n{scenario.upper().replace('_', ' ')}")
-        print("-"*80)
+        print("-"*100)
 
         # Print CC section
         if 'cc' in data and data['cc']:
@@ -447,7 +522,7 @@ def print_itl_summary(all_data):
                     m = data['cc'][model]
                     display_name = get_display_name(model, display_names)
                     print(
-                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f}  Median: {m['p50_itl']:7.1f}"
+                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f}  Median: {m['p50_itl']:7.1f}  P99: {m['p99_itl']:7.1f}"
                     )
 
         # Print No-CC section
@@ -459,11 +534,11 @@ def print_itl_summary(all_data):
                     m = data['no_cc'][model]
                     display_name = get_display_name(model, display_names)
                     print(
-                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f}  Median: {m['p50_itl']:7.1f}"
+                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f}  Median: {m['p50_itl']:7.1f}  P99: {m['p99_itl']:7.1f}"
                     )
 
-        # Print CC Overhead section
-        print("  CC Overhead:")
+        # Print CC Overhead section (Mean and Median)
+        print("  CC Overhead (Mean/Median):")
         # Get all models that appear in both CC and No-CC for this scenario
         cc_models = set(data.get('cc', {}).keys())
         no_cc_models = set(data.get('no_cc', {}).keys())
@@ -492,6 +567,26 @@ def print_itl_summary(all_data):
                     median_overhead_str = " N/A "
                 
                 print(f"    {display_name:30} Mean: {mean_overhead_str}  Median: {median_overhead_str}")
+        else:
+            print("    No models with both CC and No-CC data")
+
+        # Print CC Overhead section (P99)
+        print("  CC Overhead (P99):")
+        if common_models:
+            for model in common_models:
+                display_name = get_display_name(model, display_names)
+                cc_p99 = data['cc'][model]['p99_itl']
+                no_cc_p99 = data['no_cc'][model]['p99_itl']
+                
+                # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
+                # For latency, positive values mean CC is slower (worse)
+                if no_cc_p99 > 0:
+                    p99_overhead = ((cc_p99 - no_cc_p99) / no_cc_p99) * 100
+                    p99_overhead_str = f"{p99_overhead:+6.1f}%"
+                else:
+                    p99_overhead_str = " N/A "
+                
+                print(f"    {display_name:30} P99:  {p99_overhead_str}")
         else:
             print("    No models with both CC and No-CC data")
 
