@@ -402,10 +402,10 @@ def create_latency_plots(all_data):
             ax_p99.spines['bottom'].set_alpha(0.3)
 
         fig.legend(handles=cc_style_elements, loc='lower center', ncol=2,
-                   fontsize=9, bbox_to_anchor=(0.5, 0.16), borderaxespad=1.0,
+                   fontsize=9, bbox_to_anchor=(0.5, 0.12), borderaxespad=1.0,
                    prop={'family': 'serif'})
         fig.legend(handles=model_legend_elements, loc='lower center', ncol=ncols,
-                   fontsize=8, bbox_to_anchor=(0.5, 0.08), borderaxespad=1.0,
+                   fontsize=8, bbox_to_anchor=(0.5, 0.06), borderaxespad=1.0,
                    prop={'family': 'serif'})
         plt.suptitle(f"{scenario_titles.get(scenario, scenario)}", fontsize=16,
                      fontweight='bold', y=0.96, fontfamily='serif')
@@ -478,10 +478,10 @@ def create_latency_plots(all_data):
             ax_p99.spines['bottom'].set_alpha(0.3)
 
         fig.legend(handles=cc_style_elements, loc='lower center', ncol=2,
-                   fontsize=9, bbox_to_anchor=(0.5, 0.16), borderaxespad=1.0,
+                   fontsize=9, bbox_to_anchor=(0.5, 0.12), borderaxespad=1.0,
                    prop={'family': 'serif'})
         fig.legend(handles=model_legend_elements, loc='lower center', ncol=ncols,
-                   fontsize=8, bbox_to_anchor=(0.5, 0.08), borderaxespad=1.0,
+                   fontsize=8, bbox_to_anchor=(0.5, 0.06), borderaxespad=1.0,
                    prop={'family': 'serif'})
         plt.suptitle(f"{scenario_titles.get(scenario, scenario)}", fontsize=16,
                      fontweight='bold', y=0.96, fontfamily='serif')
