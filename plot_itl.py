@@ -522,7 +522,7 @@ def print_itl_summary(all_data):
                     m = data['cc'][model]
                     display_name = get_display_name(model, display_names)
                     print(
-                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f}  Median: {m['p50_itl']:7.1f}  P99: {m['p99_itl']:7.1f}"
+                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f} (σ: {m['std_itl']:7.1f})  Median: {m['p50_itl']:7.1f}  P99: {m['p99_itl']:7.1f}"
                     )
 
         # Print No-CC section
@@ -534,7 +534,7 @@ def print_itl_summary(all_data):
                     m = data['no_cc'][model]
                     display_name = get_display_name(model, display_names)
                     print(
-                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f}  Median: {m['p50_itl']:7.1f}  P99: {m['p99_itl']:7.1f}"
+                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f} (σ: {m['std_itl']:7.1f})  Median: {m['p50_itl']:7.1f}  P99: {m['p99_itl']:7.1f}"
                     )
 
         # Print CC Overhead section (Mean and Median)
@@ -555,18 +555,24 @@ def print_itl_summary(all_data):
                 # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
                 # For latency, positive values mean CC is slower (worse)
                 if no_cc_mean > 0:
-                    mean_overhead = ((cc_mean - no_cc_mean) / no_cc_mean) * 100
-                    mean_overhead_str = f"{mean_overhead:+6.1f}%"
+                    mean_overhead_pct = ((cc_mean - no_cc_mean) / no_cc_mean) * 100
+                    mean_overhead_pct_str = f"{mean_overhead_pct:+6.1f}%"
+                    mean_overhead_abs = cc_mean - no_cc_mean
+                    mean_overhead_abs_str = f"{mean_overhead_abs:+6.1f}"
                 else:
-                    mean_overhead_str = " N/A "
+                    mean_overhead_pct_str = " N/A "
+                    mean_overhead_abs_str = " N/A "
                     
                 if no_cc_median > 0:
-                    median_overhead = ((cc_median - no_cc_median) / no_cc_median) * 100
-                    median_overhead_str = f"{median_overhead:+6.1f}%"
+                    median_overhead_pct = ((cc_median - no_cc_median) / no_cc_median) * 100
+                    median_overhead_pct_str = f"{median_overhead_pct:+6.1f}%"
+                    median_overhead_abs = cc_median - no_cc_median
+                    median_overhead_abs_str = f"{median_overhead_abs:+6.1f}"
                 else:
-                    median_overhead_str = " N/A "
+                    median_overhead_pct_str = " N/A "
+                    median_overhead_abs_str = " N/A "
                 
-                print(f"    {display_name:30} Mean: {mean_overhead_str}  Median: {median_overhead_str}")
+                print(f"    {display_name:30} Mean: {mean_overhead_pct_str} ({mean_overhead_abs_str} ms)  Median: {median_overhead_pct_str} ({median_overhead_abs_str} ms)")
         else:
             print("    No models with both CC and No-CC data")
 
@@ -581,12 +587,15 @@ def print_itl_summary(all_data):
                 # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
                 # For latency, positive values mean CC is slower (worse)
                 if no_cc_p99 > 0:
-                    p99_overhead = ((cc_p99 - no_cc_p99) / no_cc_p99) * 100
-                    p99_overhead_str = f"{p99_overhead:+6.1f}%"
+                    p99_overhead_pct = ((cc_p99 - no_cc_p99) / no_cc_p99) * 100
+                    p99_overhead_pct_str = f"{p99_overhead_pct:+6.1f}%"
+                    p99_overhead_abs = cc_p99 - no_cc_p99
+                    p99_overhead_abs_str = f"{p99_overhead_abs:+6.1f}"
                 else:
-                    p99_overhead_str = " N/A "
+                    p99_overhead_pct_str = " N/A "
+                    p99_overhead_abs_str = " N/A "
                 
-                print(f"    {display_name:30} P99:  {p99_overhead_str}")
+                print(f"    {display_name:30} P99:  {p99_overhead_pct_str} ({p99_overhead_abs_str} ms)")
         else:
             print("    No models with both CC and No-CC data")
 

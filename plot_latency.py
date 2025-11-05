@@ -544,18 +544,24 @@ def print_latency_summary(all_data):
                 # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
                 # For latency, positive values mean CC is slower (worse)
                 if no_cc_ttft > 0:
-                    ttft_overhead = ((cc_ttft - no_cc_ttft) / no_cc_ttft) * 100
-                    ttft_overhead_str = f"{ttft_overhead:+6.1f}%"
+                    ttft_overhead_pct = ((cc_ttft - no_cc_ttft) / no_cc_ttft) * 100
+                    ttft_overhead_pct_str = f"{ttft_overhead_pct:+6.1f}%"
+                    ttft_overhead_abs = cc_ttft - no_cc_ttft
+                    ttft_overhead_abs_str = f"{ttft_overhead_abs:+7.2f}"
                 else:
-                    ttft_overhead_str = " N/A "
+                    ttft_overhead_pct_str = " N/A "
+                    ttft_overhead_abs_str = " N/A "
                     
                 if no_cc_e2e > 0:
-                    e2e_overhead = ((cc_e2e - no_cc_e2e) / no_cc_e2e) * 100
-                    e2e_overhead_str = f"{e2e_overhead:+6.1f}%"
+                    e2e_overhead_pct = ((cc_e2e - no_cc_e2e) / no_cc_e2e) * 100
+                    e2e_overhead_pct_str = f"{e2e_overhead_pct:+6.1f}%"
+                    e2e_overhead_abs = cc_e2e - no_cc_e2e
+                    e2e_overhead_abs_str = f"{e2e_overhead_abs:+7.2f}"
                 else:
-                    e2e_overhead_str = " N/A "
+                    e2e_overhead_pct_str = " N/A "
+                    e2e_overhead_abs_str = " N/A "
                 
-                print(f"    {display_name:30} TTFT: {ttft_overhead_str}  E2E: {e2e_overhead_str}")
+                print(f"    {display_name:30} TTFT: {ttft_overhead_pct_str} ({ttft_overhead_abs_str} ms)  E2E: {e2e_overhead_pct_str} ({e2e_overhead_abs_str} ms)")
         else:
             print("    No models with both CC and No-CC data")
 
@@ -572,18 +578,24 @@ def print_latency_summary(all_data):
                 # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
                 # For latency, positive values mean CC is slower (worse)
                 if no_cc_ttft > 0:
-                    ttft_overhead = ((cc_ttft - no_cc_ttft) / no_cc_ttft) * 100
-                    ttft_overhead_str = f"{ttft_overhead:+6.1f}%"
+                    ttft_overhead_pct = ((cc_ttft - no_cc_ttft) / no_cc_ttft) * 100
+                    ttft_overhead_pct_str = f"{ttft_overhead_pct:+6.1f}%"
+                    ttft_overhead_abs = cc_ttft - no_cc_ttft
+                    ttft_overhead_abs_str = f"{ttft_overhead_abs:+7.2f}"
                 else:
-                    ttft_overhead_str = " N/A "
+                    ttft_overhead_pct_str = " N/A "
+                    ttft_overhead_abs_str = " N/A "
                     
                 if no_cc_e2e > 0:
-                    e2e_overhead = ((cc_e2e - no_cc_e2e) / no_cc_e2e) * 100
-                    e2e_overhead_str = f"{e2e_overhead:+6.1f}%"
+                    e2e_overhead_pct = ((cc_e2e - no_cc_e2e) / no_cc_e2e) * 100
+                    e2e_overhead_pct_str = f"{e2e_overhead_pct:+6.1f}%"
+                    e2e_overhead_abs = cc_e2e - no_cc_e2e
+                    e2e_overhead_abs_str = f"{e2e_overhead_abs:+7.2f}"
                 else:
-                    e2e_overhead_str = " N/A "
+                    e2e_overhead_pct_str = " N/A "
+                    e2e_overhead_abs_str = " N/A "
                 
-                print(f"    {display_name:30} TTFT: {ttft_overhead_str}  E2E: {e2e_overhead_str}")
+                print(f"    {display_name:30} TTFT: {ttft_overhead_pct_str} ({ttft_overhead_abs_str} ms)  E2E: {e2e_overhead_pct_str} ({e2e_overhead_abs_str} ms)")
         else:
             print("    No models with both CC and No-CC data")
 
