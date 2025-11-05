@@ -236,7 +236,7 @@ def create_concurrency_plot(data):
                         color='#222222')
 
     ax.set_ylabel('CC Overhead (%)', fontsize=12, fontfamily='serif')
-    ax.set_xlabel('Number of Concurrent Requests', fontsize=12, fontfamily='serif')
+    ax.set_xlabel('Request Rate', fontsize=12, fontfamily='serif')
     ax.set_xticks(x)
     ax.set_xticklabels([str(c) for c in concurrency_levels], fontfamily='serif')
     for tick in ax.get_xticklabels() + ax.get_yticklabels():
