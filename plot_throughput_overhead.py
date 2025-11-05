@@ -272,7 +272,7 @@ def create_concurrency_plot(data):
 
 def print_summary(data):
     print("\n" + "="*80)
-    print("THROUGHPUT BY CONCURRENCY SUMMARY (tokens/second)")
+    print("THROUGHPUT OVERHEAD SUMMARY (Random 4000 ⇒ 1000)")
     print("="*80)
 
     _, model_order, display_names, _, mode_labels = load_config()
@@ -293,14 +293,29 @@ def print_summary(data):
             for model in models:
                 if model in data[concurrency]['cc']:
                     display_name = get_display_name(model, display_names)
-                    print(f"    {display_name:30} Output: {data[concurrency]['cc'][model]['output_throughput']:7.1f}")
+                    print(f"    {display_name:30} Input: {data[concurrency]['cc'][model]['input_throughput']:7.1f}")
 
         if 'no_cc' in data[concurrency] and data[concurrency]['no_cc']:
             print(f"  {mode_labels['no_cc']}:")
             for model in models:
                 if model in data[concurrency]['no_cc']:
                     display_name = get_display_name(model, display_names)
-                    print(f"    {display_name:30} Output: {data[concurrency]['no_cc'][model]['output_throughput']:7.1f}")
+                    print(f"    {display_name:30} Input: {data[concurrency]['no_cc'][model]['input_throughput']:7.1f}")
+
+        print("  CC Overhead:")
+        for model in models:
+            cc_throughput = 0
+            no_cc_throughput = 0
+
+            if model in data[concurrency]['cc']:
+                cc_throughput = data[concurrency]['cc'][model]['input_throughput']
+            if model in data[concurrency]['no_cc']:
+                no_cc_throughput = data[concurrency]['no_cc'][model]['input_throughput']
+
+            if no_cc_throughput > 0:
+                overhead_pct = ((no_cc_throughput - cc_throughput) / no_cc_throughput) * 100
+                display_name = get_display_name(model, display_names)
+                print(f"    {display_name:30} Input: {overhead_pct:+6.1f}%")
 
 if __name__ == "__main__":
     print("Collecting throughput data by concurrency...")

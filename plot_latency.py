@@ -505,8 +505,25 @@ def print_latency_summary(all_data):
     print("="*100)
     _, model_order, display_names, _, mode_labels = load_config()
 
+    # Create scenario titles for readable output
+    base_scenario_titles = {
+        'random': 'Random (1500 ⇒ 250)',
+        'summarization': 'Random (4000 ⇒ 1000)',
+        'translation': 'Random (1000 ⇒ 1000)',
+        'sharegpt': 'ShareGPT',
+        'edit_10k_char': 'Edit 10K Characters',
+        'numina_math': 'Numina Math',
+    }
+
+    scenario_titles = {}
+    for base_scenario, title in base_scenario_titles.items():
+        for rate in [100, 50, 1]:
+            scenario_key = f"{base_scenario}_rate{rate}"
+            scenario_titles[scenario_key] = f"{title} ({rate} Concurrent Requests)"
+
     for scenario, data in all_data.items():
-        print(f"\n{scenario.upper().replace('_', ' ')}")
+        display_title = scenario_titles.get(scenario, scenario.upper().replace('_', ' '))
+        print(f"\n{display_title.upper()}")
         print("-"*100)
         
         # Print CC section
