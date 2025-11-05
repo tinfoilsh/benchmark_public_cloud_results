@@ -343,7 +343,7 @@ def create_latency_plots(all_data):
         ]
 
         # Page 1: TTFT (Mean and P99 side by side)
-        fig, (ax_mean, ax_p99) = plt.subplots(1, 2, figsize=(20, 8))
+        fig, (ax_mean, ax_p99) = plt.subplots(1, 2, figsize=(12, 8))
 
         if union_models:
             x_pos = np.arange(len(union_models))
@@ -409,7 +409,7 @@ def create_latency_plots(all_data):
                    prop={'family': 'serif'})
         plt.suptitle(f"{scenario_titles.get(scenario, scenario)}", fontsize=16,
                      fontweight='bold', y=0.96, fontfamily='serif')
-        plt.subplots_adjust(top=0.88, bottom=0.24, left=0.04, right=0.99, wspace=0.2)
+        plt.subplots_adjust(top=0.88, bottom=0.18, left=0.06, right=0.98, wspace=0.25)
         try:
             if have_sns:
                 sns.despine(fig=fig)
@@ -419,7 +419,7 @@ def create_latency_plots(all_data):
         plt.close(fig)
 
         # Page 2: E2E Latency (Mean and P99 side by side)
-        fig, (ax_mean, ax_p99) = plt.subplots(1, 2, figsize=(20, 8))
+        fig, (ax_mean, ax_p99) = plt.subplots(1, 2, figsize=(12, 8))
 
         if union_models:
             x_pos = np.arange(len(union_models))
@@ -485,7 +485,7 @@ def create_latency_plots(all_data):
                    prop={'family': 'serif'})
         plt.suptitle(f"{scenario_titles.get(scenario, scenario)}", fontsize=16,
                      fontweight='bold', y=0.96, fontfamily='serif')
-        plt.subplots_adjust(top=0.88, bottom=0.24, left=0.04, right=0.99, wspace=0.2)
+        plt.subplots_adjust(top=0.88, bottom=0.18, left=0.06, right=0.98, wspace=0.25)
         try:
             if have_sns:
                 sns.despine(fig=fig)
