@@ -287,13 +287,13 @@ def create_latency_plots(all_data):
         'edit_10k_char': 'Edit 10K Characters',
         'numina_math': 'Numina Math',
     }
-    
+
     # Generate titles for all scenario_rate combinations
     scenario_titles = {}
     for base_scenario, title in base_scenario_titles.items():
         for rate in [100, 50, 1]:
             scenario_key = f"{base_scenario}_rate{rate}"
-            scenario_titles[scenario_key] = f"{title} (Rate {rate})"
+            scenario_titles[scenario_key] = f"{title} ({rate} Concurrent Requests)"
 
     for scenario, data in all_data.items():
         models_present = (
