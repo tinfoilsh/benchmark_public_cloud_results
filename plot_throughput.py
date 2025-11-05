@@ -285,7 +285,8 @@ def create_all_scenario_plots(all_data):
     for base_scenario, title in base_scenario_titles.items():
         for rate in [100, 50, 1]:
             scenario_key = f"{base_scenario}_rate{rate}"
-            scenario_titles[scenario_key] = f"{title} ({rate} Concurrent Requests)"
+            rate_label = "Single Request" if rate == 1 else f"{rate} Request Rate"
+            scenario_titles[scenario_key] = f"{title} ({rate_label})"
 
     _, model_order, display_names, model_colors, mode_labels = load_config()
 
@@ -461,7 +462,8 @@ def print_detailed_summary(all_data):
     for base_scenario, title in base_scenario_titles.items():
         for rate in [100, 50, 1]:
             scenario_key = f"{base_scenario}_rate{rate}"
-            scenario_titles[scenario_key] = f"{title} ({rate} Concurrent Requests)"
+            rate_label = "Single Request" if rate == 1 else f"{rate} Request Rate"
+            scenario_titles[scenario_key] = f"{title} ({rate_label})"
 
     for scenario, data in all_data.items():
         display_title = scenario_titles.get(scenario, scenario.upper().replace('_', ' '))
