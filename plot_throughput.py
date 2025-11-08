@@ -334,7 +334,7 @@ def create_all_scenario_plots(all_data):
         cc_models = set(all_data[scenario].get('cc', {}).keys())
         no_cc_models = set(all_data[scenario].get('no_cc', {}).keys())
         union_models = sort_models_by_config(cc_models | no_cc_models, model_order)
-        # Group bars by model: CC and No-CC touch; space between different model groups
+        # Group bars by model: No-CC (left) and CC (right) touch; space between different model groups
         n_models = max(1, len(union_models))
         pair_gap_ratio = 0.0     # no gap inside the CC/No-CC pair
         group_gap_ratio = 0.60   # spacing between model groups (relative to bar width)
@@ -350,41 +350,16 @@ def create_all_scenario_plots(all_data):
             cc_center = group_left + bar_width / 2.0
             plain_center = group_left + (3 * bar_width) / 2.0 + pair_gap_ratio * bar_width / 2.0
 
-            # CC bars
-            cc_values = [
-                all_data[scenario]['cc'][model]['input_throughput'] if model in all_data[scenario].get('cc', {}) else 0,
-                all_data[scenario]['cc'][model]['output_throughput'] if model in all_data[scenario].get('cc', {}) else 0
-            ]
+            # No-CC bars on the left
             mcolor = page_model_colors.get(model)
             display_name = get_display_name(model, display_names)
-            cc_bars = ax.bar(
-                x + cc_center, cc_values, bar_width,
-                label=f'{display_name} ({mode_labels["cc"]})',
-                color=mcolor,
-                alpha=0.95,
-                edgecolor=mcolor,
-                linewidth=0,
-                zorder=3
-            )
-            hatch_color = '#333333'
-            ax.bar(
-                x + cc_center, cc_values, bar_width,
-                facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4
-            )
-            for bar in cc_bars:
-                height = bar.get_height()
-                if height > 0:
-                    ax.text(bar.get_x() + bar.get_width()/2., height,
-                            format_rate(height), ha='center', va='bottom', fontsize=8,
-                            color='#222222')
-
             if model in no_cc_models:
                 no_cc_values = [
                     all_data[scenario]['no_cc'][model]['input_throughput'] if model in all_data[scenario].get('no_cc', {}) else 0,
                     all_data[scenario]['no_cc'][model]['output_throughput'] if model in all_data[scenario].get('no_cc', {}) else 0
                 ]
                 no_cc_bars = ax.bar(
-                    x + plain_center, no_cc_values, bar_width,
+                    x + cc_center, no_cc_values, bar_width,
                     label=f'{display_name} ({mode_labels["no_cc"]})',
                     color=mcolor,
                     alpha=0.95,
@@ -398,6 +373,32 @@ def create_all_scenario_plots(all_data):
                         ax.text(bar.get_x() + bar.get_width()/2., height,
                                 format_rate(height), ha='center', va='bottom', fontsize=8,
                                 color='#222222')
+
+            # CC bars on the right with hatch overlay
+            cc_values = [
+                all_data[scenario]['cc'][model]['input_throughput'] if model in all_data[scenario].get('cc', {}) else 0,
+                all_data[scenario]['cc'][model]['output_throughput'] if model in all_data[scenario].get('cc', {}) else 0
+            ]
+            cc_bars = ax.bar(
+                x + plain_center, cc_values, bar_width,
+                label=f'{display_name} ({mode_labels["cc"]})',
+                color=mcolor,
+                alpha=0.95,
+                edgecolor=mcolor,
+                linewidth=0,
+                zorder=3
+            )
+            hatch_color = '#333333'
+            ax.bar(
+                x + plain_center, cc_values, bar_width,
+                facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4
+            )
+            for bar in cc_bars:
+                height = bar.get_height()
+                if height > 0:
+                    ax.text(bar.get_x() + bar.get_width()/2., height,
+                            format_rate(height), ha='center', va='bottom', fontsize=8,
+                            color='#222222')
         ax.set_ylabel('Tokens/second', fontsize=12, fontfamily='serif')
         ax.set_xticks(x)
         ax.set_xticklabels(['Input Throughput', 'Output Throughput'], fontfamily='serif')
@@ -413,9 +414,10 @@ def create_all_scenario_plots(all_data):
         from matplotlib.patches import Patch
         model_legend_elements = [Patch(facecolor=page_model_colors.get(m), label=get_display_name(m, display_names)) for m in union_models]
         ncols = max(3, min(len(model_legend_elements), 6)) if model_legend_elements else 3
+        # Legend order: No-CC (left) then CC (right)
         cc_style_elements = [
+            Patch(facecolor='#777777', label=mode_labels['no_cc']),
             Patch(facecolor='#777777', hatch='///', edgecolor='#333333', label=mode_labels['cc']),
-            Patch(facecolor='#777777', label=mode_labels['no_cc'])
         ]
         fig.legend(handles=cc_style_elements, loc='lower center', ncol=2,
                    fontsize=9, bbox_to_anchor=(0.5, 0.16), borderaxespad=1.0,

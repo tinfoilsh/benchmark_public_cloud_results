@@ -356,10 +356,29 @@ def create_itl_plots(all_data):
             cc_center = group_left + bar_width / 2.0
             plain_center = group_left + (3 * bar_width) / 2.0 + pair_gap_ratio * bar_width / 2.0
 
-            cc_value = all_data[scenario]['cc'][model]['mean_itl'] if model in all_data[scenario].get('cc', {}) else 0
             mcolor = page_model_colors.get(model)
+            # No-CC on the left
+            if model in no_cc_models:
+                no_cc_value = all_data[scenario]['no_cc'][model]['mean_itl'] if model in all_data[scenario].get('no_cc', {}) else 0
+                ax.bar(
+                    x + cc_center, [no_cc_value], bar_width,
+                    label=f'{get_display_name(model, display_names)} ({mode_labels["no_cc"]})',
+                    color=mcolor,
+                    alpha=0.95,
+                    edgecolor=mcolor,
+                    linewidth=0,
+                    zorder=3
+                )
+                if no_cc_value > 0:
+                    ax.text(
+                        cc_center, no_cc_value,
+                        _format_ms(no_cc_value),
+                        ha='center', va='bottom', fontsize=8, color='#222222'
+                    )
+            # CC on the right with hatch
+            cc_value = all_data[scenario]['cc'][model]['mean_itl'] if model in all_data[scenario].get('cc', {}) else 0
             cc_bar = ax.bar(
-                x + cc_center, [cc_value], bar_width,
+                x + plain_center, [cc_value], bar_width,
                 label=f'{get_display_name(model, display_names)} ({mode_labels["cc"]})',
                 color=mcolor,
                 alpha=0.95,
@@ -369,35 +388,15 @@ def create_itl_plots(all_data):
             )
             hatch_color = '#333333'
             ax.bar(
-                x + cc_center, [cc_value], bar_width,
+                x + plain_center, [cc_value], bar_width,
                 facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4
             )
-            # Annotate the bar directly
             if cc_value > 0:
                 ax.text(
-                    cc_center, cc_value,
+                    plain_center, cc_value,
                     _format_ms(cc_value),
                     ha='center', va='bottom', fontsize=8, color='#222222'
                 )
-
-            if model in no_cc_models:
-                no_cc_value = all_data[scenario]['no_cc'][model]['mean_itl'] if model in all_data[scenario].get('no_cc', {}) else 0
-                no_cc_bar = ax.bar(
-                    x + plain_center, [no_cc_value], bar_width,
-                    label=f'{get_display_name(model, display_names)} ({mode_labels["no_cc"]})',
-                    color=mcolor,
-                    alpha=0.95,
-                    edgecolor=mcolor,
-                    linewidth=0,
-                    zorder=3
-                )
-                # Annotate the bar directly
-                if no_cc_value > 0:
-                    ax.text(
-                        plain_center, no_cc_value,
-                        _format_ms(no_cc_value),
-                        ha='center', va='bottom', fontsize=8, color='#222222'
-                    )
                 
         ax.set_ylabel('Inter-Token Latency (ms)', fontsize=12, fontfamily='serif')
         ax.set_xticks([])
@@ -421,10 +420,28 @@ def create_itl_plots(all_data):
             cc_center = group_left + bar_width / 2.0
             plain_center = group_left + (3 * bar_width) / 2.0 + pair_gap_ratio * bar_width / 2.0
 
-            cc_value = all_data[scenario]['cc'][model]['p99_itl'] if model in all_data[scenario].get('cc', {}) else 0
             mcolor = page_model_colors.get(model)
+            # No-CC on the left
+            if model in no_cc_models:
+                no_cc_value = all_data[scenario]['no_cc'][model]['p99_itl'] if model in all_data[scenario].get('no_cc', {}) else 0
+                ax.bar(
+                    x + cc_center, [no_cc_value], bar_width,
+                    color=mcolor,
+                    alpha=0.95,
+                    edgecolor=mcolor,
+                    linewidth=0,
+                    zorder=3
+                )
+                if no_cc_value > 0:
+                    ax.text(
+                        cc_center, no_cc_value,
+                        _format_ms(no_cc_value),
+                        ha='center', va='bottom', fontsize=8, color='#222222'
+                    )
+            # CC on the right with hatch
+            cc_value = all_data[scenario]['cc'][model]['p99_itl'] if model in all_data[scenario].get('cc', {}) else 0
             cc_bar = ax.bar(
-                x + cc_center, [cc_value], bar_width,
+                x + plain_center, [cc_value], bar_width,
                 color=mcolor,
                 alpha=0.95,
                 edgecolor=mcolor,
@@ -433,34 +450,15 @@ def create_itl_plots(all_data):
             )
             hatch_color = '#333333'
             ax.bar(
-                x + cc_center, [cc_value], bar_width,
+                x + plain_center, [cc_value], bar_width,
                 facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4
             )
-            # Annotate the bar directly
             if cc_value > 0:
                 ax.text(
-                    cc_center, cc_value,
+                    plain_center, cc_value,
                     _format_ms(cc_value),
                     ha='center', va='bottom', fontsize=8, color='#222222'
                 )
-
-            if model in no_cc_models:
-                no_cc_value = all_data[scenario]['no_cc'][model]['p99_itl'] if model in all_data[scenario].get('no_cc', {}) else 0
-                no_cc_bar = ax.bar(
-                    x + plain_center, [no_cc_value], bar_width,
-                    color=mcolor,
-                    alpha=0.95,
-                    edgecolor=mcolor,
-                    linewidth=0,
-                    zorder=3
-                )
-                # Annotate the bar directly
-                if no_cc_value > 0:
-                    ax.text(
-                        plain_center, no_cc_value,
-                        _format_ms(no_cc_value),
-                        ha='center', va='bottom', fontsize=8, color='#222222'
-                    )
                 
         ax.set_ylabel('Inter-Token Latency (ms)', fontsize=12, fontfamily='serif')
         ax.set_xticks([])
@@ -477,9 +475,10 @@ def create_itl_plots(all_data):
         from matplotlib.patches import Patch
         model_legend_elements = [Patch(facecolor=page_model_colors.get(m), label=get_display_name(m, display_names)) for m in union_models]
         ncols = max(3, min(len(model_legend_elements), 6)) if model_legend_elements else 3
+        # Legend order: No-CC (left) then CC (right)
         cc_style_elements = [
+            Patch(facecolor='#777777', label=mode_labels['no_cc']),
             Patch(facecolor='#777777', hatch='///', edgecolor='#333333', label=mode_labels['cc']),
-            Patch(facecolor='#777777', label=mode_labels['no_cc'])
         ]
         fig.legend(handles=cc_style_elements, loc='lower center', ncol=2,
                    fontsize=9, bbox_to_anchor=(0.5, 0.12), borderaxespad=1.0,

@@ -334,19 +334,20 @@ def create_network_latency_plots(all_data):
             x_pos = np.arange(len(union_models))
             width = 0.35
 
-            vals_cc = [all_data[scenario]['cc'][m]['network_e2el_ms'] if m in all_data[scenario].get('cc', {}) else 0 for m in union_models]
             colors = [page_model_colors.get(m) for m in union_models]
-            bars_cc = ax.bar(x_pos - width/2, vals_cc, width,
-                             color=colors, alpha=0.95, edgecolor=colors, linewidth=0, zorder=3)
             hatch_color = '#333333'
-            ax.bar(x_pos - width/2, vals_cc, width,
-                   facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4)
-            _annotate_bars(ax, bars_cc, vals_cc)
-
+            # No-CC on the left
             vals_no_cc = [all_data[scenario]['no_cc'][m]['network_e2el_ms'] if m in all_data[scenario].get('no_cc', {}) else 0 for m in union_models]
-            bars_no_cc = ax.bar(x_pos + width/2, vals_no_cc, width,
+            bars_no_cc = ax.bar(x_pos - width/2, vals_no_cc, width,
                                 color=colors, alpha=0.95, edgecolor=colors, linewidth=0, zorder=3)
             _annotate_bars(ax, bars_no_cc, vals_no_cc)
+            # CC on the right with hatch
+            vals_cc = [all_data[scenario]['cc'][m]['network_e2el_ms'] if m in all_data[scenario].get('cc', {}) else 0 for m in union_models]
+            bars_cc = ax.bar(x_pos + width/2, vals_cc, width,
+                             color=colors, alpha=0.95, edgecolor=colors, linewidth=0, zorder=3)
+            ax.bar(x_pos + width/2, vals_cc, width,
+                   facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4)
+            _annotate_bars(ax, bars_cc, vals_cc)
             ax.set_xticks([])
 
         ax.set_ylabel('End-to-End Latency with Network (ms)', fontsize=12, fontfamily='serif')
@@ -363,9 +364,10 @@ def create_network_latency_plots(all_data):
         from matplotlib.patches import Patch
         model_legend_elements = [Patch(facecolor=page_model_colors.get(m), label=get_display_name(m, display_names)) for m in union_models]
         ncols = max(3, min(len(model_legend_elements), 6)) if model_legend_elements else 3
+        # Legend order: No-CC (left) then CC (right)
         cc_style_elements = [
+            Patch(facecolor='#777777', label=mode_labels['no_cc']),
             Patch(facecolor='#777777', hatch='///', edgecolor='#333333', label=mode_labels['cc']),
-            Patch(facecolor='#777777', label=mode_labels['no_cc'])
         ]
         fig.legend(handles=cc_style_elements, loc='lower center', ncol=2,
                    fontsize=9, bbox_to_anchor=(0.5, 0.16), borderaxespad=1.0,
