@@ -290,7 +290,7 @@ def create_itl_plots(all_data):
     for base_scenario, title in base_scenario_titles.items():
         for rate in [100, 50, 1]:
             scenario_key = f"{base_scenario}_rate{rate}"
-            rate_label = "Single Request" if rate == 1 else f"{rate} Request Rate"
+            rate_label = f"Request Rate {rate}"
             scenario_titles[scenario_key] = f"{title} ({rate_label})"
 
     for scenario, data in all_data.items():
@@ -356,10 +356,29 @@ def create_itl_plots(all_data):
             cc_center = group_left + bar_width / 2.0
             plain_center = group_left + (3 * bar_width) / 2.0 + pair_gap_ratio * bar_width / 2.0
 
-            cc_value = all_data[scenario]['cc'][model]['mean_itl'] if model in all_data[scenario].get('cc', {}) else 0
             mcolor = page_model_colors.get(model)
+            # No-CC on the left
+            if model in no_cc_models:
+                no_cc_value = all_data[scenario]['no_cc'][model]['mean_itl'] if model in all_data[scenario].get('no_cc', {}) else 0
+                ax.bar(
+                    x + cc_center, [no_cc_value], bar_width,
+                    label=f'{get_display_name(model, display_names)} ({mode_labels["no_cc"]})',
+                    color=mcolor,
+                    alpha=0.95,
+                    edgecolor=mcolor,
+                    linewidth=0,
+                    zorder=3
+                )
+                if no_cc_value > 0:
+                    ax.text(
+                        cc_center, no_cc_value,
+                        _format_ms(no_cc_value),
+                        ha='center', va='bottom', fontsize=8, color='#222222'
+                    )
+            # CC on the right with hatch
+            cc_value = all_data[scenario]['cc'][model]['mean_itl'] if model in all_data[scenario].get('cc', {}) else 0
             cc_bar = ax.bar(
-                x + cc_center, [cc_value], bar_width,
+                x + plain_center, [cc_value], bar_width,
                 label=f'{get_display_name(model, display_names)} ({mode_labels["cc"]})',
                 color=mcolor,
                 alpha=0.95,
@@ -369,35 +388,15 @@ def create_itl_plots(all_data):
             )
             hatch_color = '#333333'
             ax.bar(
-                x + cc_center, [cc_value], bar_width,
+                x + plain_center, [cc_value], bar_width,
                 facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4
             )
-            # Annotate the bar directly
             if cc_value > 0:
                 ax.text(
-                    cc_center, cc_value,
+                    plain_center, cc_value,
                     _format_ms(cc_value),
                     ha='center', va='bottom', fontsize=8, color='#222222'
                 )
-
-            if model in no_cc_models:
-                no_cc_value = all_data[scenario]['no_cc'][model]['mean_itl'] if model in all_data[scenario].get('no_cc', {}) else 0
-                no_cc_bar = ax.bar(
-                    x + plain_center, [no_cc_value], bar_width,
-                    label=f'{get_display_name(model, display_names)} ({mode_labels["no_cc"]})',
-                    color=mcolor,
-                    alpha=0.95,
-                    edgecolor=mcolor,
-                    linewidth=0,
-                    zorder=3
-                )
-                # Annotate the bar directly
-                if no_cc_value > 0:
-                    ax.text(
-                        plain_center, no_cc_value,
-                        _format_ms(no_cc_value),
-                        ha='center', va='bottom', fontsize=8, color='#222222'
-                    )
                 
         ax.set_ylabel('Inter-Token Latency (ms)', fontsize=12, fontfamily='serif')
         ax.set_xticks([])
@@ -421,10 +420,28 @@ def create_itl_plots(all_data):
             cc_center = group_left + bar_width / 2.0
             plain_center = group_left + (3 * bar_width) / 2.0 + pair_gap_ratio * bar_width / 2.0
 
-            cc_value = all_data[scenario]['cc'][model]['p99_itl'] if model in all_data[scenario].get('cc', {}) else 0
             mcolor = page_model_colors.get(model)
+            # No-CC on the left
+            if model in no_cc_models:
+                no_cc_value = all_data[scenario]['no_cc'][model]['p99_itl'] if model in all_data[scenario].get('no_cc', {}) else 0
+                ax.bar(
+                    x + cc_center, [no_cc_value], bar_width,
+                    color=mcolor,
+                    alpha=0.95,
+                    edgecolor=mcolor,
+                    linewidth=0,
+                    zorder=3
+                )
+                if no_cc_value > 0:
+                    ax.text(
+                        cc_center, no_cc_value,
+                        _format_ms(no_cc_value),
+                        ha='center', va='bottom', fontsize=8, color='#222222'
+                    )
+            # CC on the right with hatch
+            cc_value = all_data[scenario]['cc'][model]['p99_itl'] if model in all_data[scenario].get('cc', {}) else 0
             cc_bar = ax.bar(
-                x + cc_center, [cc_value], bar_width,
+                x + plain_center, [cc_value], bar_width,
                 color=mcolor,
                 alpha=0.95,
                 edgecolor=mcolor,
@@ -433,34 +450,15 @@ def create_itl_plots(all_data):
             )
             hatch_color = '#333333'
             ax.bar(
-                x + cc_center, [cc_value], bar_width,
+                x + plain_center, [cc_value], bar_width,
                 facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4
             )
-            # Annotate the bar directly
             if cc_value > 0:
                 ax.text(
-                    cc_center, cc_value,
+                    plain_center, cc_value,
                     _format_ms(cc_value),
                     ha='center', va='bottom', fontsize=8, color='#222222'
                 )
-
-            if model in no_cc_models:
-                no_cc_value = all_data[scenario]['no_cc'][model]['p99_itl'] if model in all_data[scenario].get('no_cc', {}) else 0
-                no_cc_bar = ax.bar(
-                    x + plain_center, [no_cc_value], bar_width,
-                    color=mcolor,
-                    alpha=0.95,
-                    edgecolor=mcolor,
-                    linewidth=0,
-                    zorder=3
-                )
-                # Annotate the bar directly
-                if no_cc_value > 0:
-                    ax.text(
-                        plain_center, no_cc_value,
-                        _format_ms(no_cc_value),
-                        ha='center', va='bottom', fontsize=8, color='#222222'
-                    )
                 
         ax.set_ylabel('Inter-Token Latency (ms)', fontsize=12, fontfamily='serif')
         ax.set_xticks([])
@@ -477,9 +475,10 @@ def create_itl_plots(all_data):
         from matplotlib.patches import Patch
         model_legend_elements = [Patch(facecolor=page_model_colors.get(m), label=get_display_name(m, display_names)) for m in union_models]
         ncols = max(3, min(len(model_legend_elements), 6)) if model_legend_elements else 3
+        # Legend order: No-CC (left) then CC (right)
         cc_style_elements = [
+            Patch(facecolor='#777777', label=mode_labels['no_cc']),
             Patch(facecolor='#777777', hatch='///', edgecolor='#333333', label=mode_labels['cc']),
-            Patch(facecolor='#777777', label=mode_labels['no_cc'])
         ]
         fig.legend(handles=cc_style_elements, loc='lower center', ncol=2,
                    fontsize=9, bbox_to_anchor=(0.5, 0.12), borderaxespad=1.0,
@@ -504,13 +503,22 @@ def create_itl_plots(all_data):
     return all_data
 
 def print_itl_summary(all_data):
-    """Print detailed summary statistics for all scenarios"""
+    """Print detailed ITL grouped by model, experiments grouped by rate."""
     print("\n" + "="*100)
     print("DETAILED ITL SUMMARY (milliseconds)")
     print("="*100)
     _, model_order, display_names, _, mode_labels = load_config()
 
-    # Create scenario titles for readable output
+    base_scenarios = [
+        "random",
+        "summarization",
+        "translation",
+        "sharegpt",
+        "edit_10k_char",
+        "numina_math",
+    ]
+    request_rates = [100, 50, 1]
+
     base_scenario_titles = {
         'random': 'Random (1500 ⇒ 250)',
         'summarization': 'Random (4000 ⇒ 1000)',
@@ -520,103 +528,68 @@ def print_itl_summary(all_data):
         'numina_math': 'Numina Math',
     }
 
-    scenario_titles = {}
-    for base_scenario, title in base_scenario_titles.items():
-        for rate in [100, 50, 1]:
-            scenario_key = f"{base_scenario}_rate{rate}"
-            rate_label = "Single Request" if rate == 1 else f"{rate} Request Rate"
-            scenario_titles[scenario_key] = f"{title} ({rate_label})"
-
+    # Collect all models across scenarios and modes
+    all_models = set()
     for scenario, data in all_data.items():
-        display_title = scenario_titles.get(scenario, scenario.upper().replace('_', ' '))
-        print(f"\n{display_title.upper()}")
+        all_models.update(data.get('cc', {}).keys())
+        all_models.update(data.get('no_cc', {}).keys())
+    models_sorted = sort_models_by_config(all_models, model_order)
+
+    for model in models_sorted:
+        display_name = get_display_name(model, display_names)
+        print(f"\n{display_name}")
         print("-"*100)
 
-        # Print CC section
-        if 'cc' in data and data['cc']:
-            print(f"  {mode_labels['cc']}:")
-            models = sort_models_by_config(data['cc'].keys(), model_order)
-            for model in models:
-                if model in data['cc']:
-                    m = data['cc'][model]
-                    display_name = get_display_name(model, display_names)
-                    print(
-                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f} (σ: {m['std_itl']:7.1f})  Median: {m['p50_itl']:7.1f}  P99: {m['p99_itl']:7.1f}"
+        for rate in request_rates:
+            print(f"  Rate {rate}:")
+            any_shown = False
+            mean_overheads = []
+
+            for base in base_scenarios:
+                scenario_key = f"{base}_rate{rate}"
+                data = all_data.get(scenario_key, {})
+                cc = data.get('cc', {}).get(model)
+                nocc = data.get('no_cc', {}).get(model)
+
+                if not cc and not nocc:
+                    continue
+
+                any_shown = True
+                title = base_scenario_titles.get(base, base)
+
+                parts = []
+                if cc:
+                    parts.append(
+                        f"{mode_labels['cc']:<5}: Mean {cc['mean_itl']:6.1f} (σ {cc['std_itl']:5.1f}) Med {cc['p50_itl']:6.1f} P99 {cc['p99_itl']:6.1f}"
+                    )
+                if nocc:
+                    parts.append(
+                        f"{mode_labels['no_cc']:<5}: Mean {nocc['mean_itl']:6.1f} (σ {nocc['std_itl']:5.1f}) Med {nocc['p50_itl']:6.1f} P99 {nocc['p99_itl']:6.1f}"
                     )
 
-        # Print No-CC section
-        if 'no_cc' in data and data['no_cc']:
-            print(f"  {mode_labels['no_cc']}:")
-            models = sort_models_by_config(data['no_cc'].keys(), model_order)
-            for model in models:
-                if model in data['no_cc']:
-                    m = data['no_cc'][model]
-                    display_name = get_display_name(model, display_names)
-                    print(
-                        f"    {display_name:30} Mean: {m['mean_itl']:7.1f} (σ: {m['std_itl']:7.1f})  Median: {m['p50_itl']:7.1f}  P99: {m['p99_itl']:7.1f}"
+                if cc and nocc:
+                    def _ov(p, c):
+                        return ((c - p) / p) * 100 if p > 0 else None
+                    def _fmt(pct):
+                        return f"{pct:+.1f}%" if pct is not None else "N/A"
+                    mean_ov = _ov(nocc['mean_itl'], cc['mean_itl'])
+                    median_ov = _ov(nocc['p50_itl'], cc['p50_itl'])
+                    p99_ov = _ov(nocc['p99_itl'], cc['p99_itl'])
+                    parts.append(
+                        f"Overhead: Mean {_fmt(mean_ov)} Med {_fmt(median_ov)} P99 {_fmt(p99_ov)}"
                     )
+                    if mean_ov is not None:
+                        mean_overheads.append(mean_ov)
 
-        # Print CC Overhead section (Mean and Median)
-        print("  CC Overhead (Mean/Median):")
-        # Get all models that appear in both CC and No-CC for this scenario
-        cc_models = set(data.get('cc', {}).keys())
-        no_cc_models = set(data.get('no_cc', {}).keys())
-        common_models = sort_models_by_config(cc_models & no_cc_models, model_order)
-        
-        if common_models:
-            for model in common_models:
-                display_name = get_display_name(model, display_names)
-                cc_mean = data['cc'][model]['mean_itl']
-                cc_median = data['cc'][model]['p50_itl']
-                no_cc_mean = data['no_cc'][model]['mean_itl']
-                no_cc_median = data['no_cc'][model]['p50_itl']
-                
-                # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
-                # For latency, positive values mean CC is slower (worse)
-                if no_cc_mean > 0:
-                    mean_overhead_pct = ((cc_mean - no_cc_mean) / no_cc_mean) * 100
-                    mean_overhead_pct_str = f"{mean_overhead_pct:+6.1f}%"
-                    mean_overhead_abs = cc_mean - no_cc_mean
-                    mean_overhead_abs_str = f"{mean_overhead_abs:+6.1f}"
-                else:
-                    mean_overhead_pct_str = " N/A "
-                    mean_overhead_abs_str = " N/A "
-                    
-                if no_cc_median > 0:
-                    median_overhead_pct = ((cc_median - no_cc_median) / no_cc_median) * 100
-                    median_overhead_pct_str = f"{median_overhead_pct:+6.1f}%"
-                    median_overhead_abs = cc_median - no_cc_median
-                    median_overhead_abs_str = f"{median_overhead_abs:+6.1f}"
-                else:
-                    median_overhead_pct_str = " N/A "
-                    median_overhead_abs_str = " N/A "
-                
-                print(f"    {display_name:30} Mean: {mean_overhead_pct_str} ({mean_overhead_abs_str} ms)  Median: {median_overhead_pct_str} ({median_overhead_abs_str} ms)")
-        else:
-            print("    No models with both CC and No-CC data")
+                print(f"    {title:30} " + " | ".join(parts))
 
-        # Print CC Overhead section (P99)
-        print("  CC Overhead (P99):")
-        if common_models:
-            for model in common_models:
-                display_name = get_display_name(model, display_names)
-                cc_p99 = data['cc'][model]['p99_itl']
-                no_cc_p99 = data['no_cc'][model]['p99_itl']
-                
-                # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
-                # For latency, positive values mean CC is slower (worse)
-                if no_cc_p99 > 0:
-                    p99_overhead_pct = ((cc_p99 - no_cc_p99) / no_cc_p99) * 100
-                    p99_overhead_pct_str = f"{p99_overhead_pct:+6.1f}%"
-                    p99_overhead_abs = cc_p99 - no_cc_p99
-                    p99_overhead_abs_str = f"{p99_overhead_abs:+6.1f}"
-                else:
-                    p99_overhead_pct_str = " N/A "
-                    p99_overhead_abs_str = " N/A "
-                
-                print(f"    {display_name:30} P99:  {p99_overhead_pct_str} ({p99_overhead_abs_str} ms)")
-        else:
-            print("    No models with both CC and No-CC data")
+            if not any_shown:
+                print("    No data")
+            # Per-rate average mean overhead and separator
+            if mean_overheads:
+                avg_mean = sum(mean_overheads) / len(mean_overheads)
+                print(f"    Average Mean Overhead (ITL) across {len(mean_overheads)} experiments: {avg_mean:+.1f}%")
+            print("  " + "-"*100)
 
 
 def _ratio(cc_val: float, plain_val: float):

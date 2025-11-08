@@ -285,7 +285,7 @@ def create_network_latency_plots(all_data):
     for base_scenario, title in base_scenario_titles.items():
         for rate in [100, 50, 1]:
             scenario_key = f"{base_scenario}_rate{rate}"
-            rate_label = "Single Request" if rate == 1 else f"{rate} Request Rate"
+            rate_label = f"Request Rate {rate}"
             scenario_titles[scenario_key] = f"{title} ({rate_label})"
 
     for scenario, data in all_data.items():
@@ -334,19 +334,20 @@ def create_network_latency_plots(all_data):
             x_pos = np.arange(len(union_models))
             width = 0.35
 
-            vals_cc = [all_data[scenario]['cc'][m]['network_e2el_ms'] if m in all_data[scenario].get('cc', {}) else 0 for m in union_models]
             colors = [page_model_colors.get(m) for m in union_models]
-            bars_cc = ax.bar(x_pos - width/2, vals_cc, width,
-                             color=colors, alpha=0.95, edgecolor=colors, linewidth=0, zorder=3)
             hatch_color = '#333333'
-            ax.bar(x_pos - width/2, vals_cc, width,
-                   facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4)
-            _annotate_bars(ax, bars_cc, vals_cc)
-
+            # No-CC on the left
             vals_no_cc = [all_data[scenario]['no_cc'][m]['network_e2el_ms'] if m in all_data[scenario].get('no_cc', {}) else 0 for m in union_models]
-            bars_no_cc = ax.bar(x_pos + width/2, vals_no_cc, width,
+            bars_no_cc = ax.bar(x_pos - width/2, vals_no_cc, width,
                                 color=colors, alpha=0.95, edgecolor=colors, linewidth=0, zorder=3)
             _annotate_bars(ax, bars_no_cc, vals_no_cc)
+            # CC on the right with hatch
+            vals_cc = [all_data[scenario]['cc'][m]['network_e2el_ms'] if m in all_data[scenario].get('cc', {}) else 0 for m in union_models]
+            bars_cc = ax.bar(x_pos + width/2, vals_cc, width,
+                             color=colors, alpha=0.95, edgecolor=colors, linewidth=0, zorder=3)
+            ax.bar(x_pos + width/2, vals_cc, width,
+                   facecolor='none', edgecolor=hatch_color, hatch='///', linewidth=0, zorder=4)
+            _annotate_bars(ax, bars_cc, vals_cc)
             ax.set_xticks([])
 
         ax.set_ylabel('End-to-End Latency with Network (ms)', fontsize=12, fontfamily='serif')
@@ -363,9 +364,10 @@ def create_network_latency_plots(all_data):
         from matplotlib.patches import Patch
         model_legend_elements = [Patch(facecolor=page_model_colors.get(m), label=get_display_name(m, display_names)) for m in union_models]
         ncols = max(3, min(len(model_legend_elements), 6)) if model_legend_elements else 3
+        # Legend order: No-CC (left) then CC (right)
         cc_style_elements = [
+            Patch(facecolor='#777777', label=mode_labels['no_cc']),
             Patch(facecolor='#777777', hatch='///', edgecolor='#333333', label=mode_labels['cc']),
-            Patch(facecolor='#777777', label=mode_labels['no_cc'])
         ]
         fig.legend(handles=cc_style_elements, loc='lower center', ncol=2,
                    fontsize=9, bbox_to_anchor=(0.5, 0.16), borderaxespad=1.0,
@@ -394,7 +396,10 @@ def print_network_latency_summary(all_data):
     print("="*80)
     _, model_order, display_names, _, mode_labels = load_config()
 
-    # Create scenario titles for readable output
+    base_scenarios = [
+        'random', 'summarization', 'translation', 'sharegpt', 'edit_10k_char', 'numina_math'
+    ]
+    request_rates = [100, 50, 1]
     base_scenario_titles = {
         'random': 'Random (1500 ⇒ 250)',
         'summarization': 'Random (4000 ⇒ 1000)',
@@ -404,76 +409,54 @@ def print_network_latency_summary(all_data):
         'numina_math': 'Numina Math',
     }
 
-    scenario_titles = {}
-    for base_scenario, title in base_scenario_titles.items():
-        for rate in [100, 50, 1]:
-            scenario_key = f"{base_scenario}_rate{rate}"
-            rate_label = "Single Request" if rate == 1 else f"{rate} Request Rate"
-            scenario_titles[scenario_key] = f"{title} ({rate_label})"
-
+    all_models = set()
     for scenario, data in all_data.items():
-        display_title = scenario_titles.get(scenario, scenario.upper().replace('_', ' '))
-        print(f"\n{display_title.upper()}")
+        all_models.update(data.get('cc', {}).keys())
+        all_models.update(data.get('no_cc', {}).keys())
+    models_sorted = sort_models_by_config(all_models, model_order)
+
+    for model in models_sorted:
+        display_name = get_display_name(model, display_names)
+        print(f"\n{display_name}")
         print("-"*80)
-        
-        # Print CC section
-        if 'cc' in data and data['cc']:
-            print(f"  {mode_labels['cc']}:")
-            models = sort_models_by_config(data['cc'].keys(), model_order)
-            for model in models:
-                if model in data['cc']:
-                    m = data['cc'][model]
-                    display_name = get_display_name(model, display_names)
-                    print(
-                        f"    {display_name:30} Base E2E: {m['base_e2el_ms']:8.2f}  "
-                        f"With Network: {m['network_e2el_ms']:8.2f}"
-                    )
 
-        # Print No-CC section
-        if 'no_cc' in data and data['no_cc']:
-            print(f"  {mode_labels['no_cc']}:")
-            models = sort_models_by_config(data['no_cc'].keys(), model_order)
-            for model in models:
-                if model in data['no_cc']:
-                    m = data['no_cc'][model]
-                    display_name = get_display_name(model, display_names)
-                    print(
-                        f"    {display_name:30} Base E2E: {m['base_e2el_ms']:8.2f}  "
-                        f"With Network: {m['network_e2el_ms']:8.2f}"
-                    )
+        for rate in request_rates:
+            print(f"  Rate {rate}:")
+            any_shown = False
 
-        # Print CC Overhead section
-        print("  CC Overhead:")
-        # Get all models that appear in both CC and No-CC for this scenario
-        cc_models = set(data.get('cc', {}).keys())
-        no_cc_models = set(data.get('no_cc', {}).keys())
-        common_models = sort_models_by_config(cc_models & no_cc_models, model_order)
-        
-        if common_models:
-            for model in common_models:
-                display_name = get_display_name(model, display_names)
-                cc_base = data['cc'][model]['base_e2el_ms']
-                cc_network = data['cc'][model]['network_e2el_ms']
-                no_cc_base = data['no_cc'][model]['base_e2el_ms']
-                no_cc_network = data['no_cc'][model]['network_e2el_ms']
-                
-                # Calculate overhead: ((CC - No-CC) / No-CC) * 100%
-                # For latency, positive values mean CC is slower (worse)
-                if no_cc_base > 0:
-                    base_overhead = ((cc_base - no_cc_base) / no_cc_base) * 100
-                    base_overhead_str = f"{base_overhead:+6.1f}%"
-                else:
-                    base_overhead_str = " N/A "
-                    
-                if no_cc_network > 0:
-                    network_overhead = ((cc_network - no_cc_network) / no_cc_network) * 100
-                    network_overhead_str = f"{network_overhead:+6.1f}%"
-                else:
-                    network_overhead_str = " N/A "
-                
-                print(f"    {display_name:30} Base E2E: {base_overhead_str}  With Network: {network_overhead_str}")
-        else:
-            print("    No models with both CC and No-CC data")
+            for base in base_scenarios:
+                scenario_key = f"{base}_rate{rate}"
+                data = all_data.get(scenario_key, {})
+                cc = data.get('cc', {}).get(model)
+                nocc = data.get('no_cc', {}).get(model)
+
+                if not cc and not nocc:
+                    continue
+
+                any_shown = True
+                title = base_scenario_titles.get(base, base)
+                parts = []
+                if cc:
+                    parts.append(
+                        f"{mode_labels['cc']}: Base {cc['base_e2el_ms']:7.1f}  With Net {cc['network_e2el_ms']:7.1f}"
+                    )
+                if nocc:
+                    parts.append(
+                        f"{mode_labels['no_cc']}: Base {nocc['base_e2el_ms']:7.1f}  With Net {nocc['network_e2el_ms']:7.1f}"
+                    )
+                if cc and nocc:
+                    def _ov(p, c):
+                        return ((c - p) / p) * 100 if p > 0 else None
+                    def _fmt(pct):
+                        return f"{pct:+6.1f}%" if pct is not None else " N/A "
+                    base_ov = _ov(nocc['base_e2el_ms'], cc['base_e2el_ms'])
+                    net_ov = _ov(nocc['network_e2el_ms'], cc['network_e2el_ms'])
+                    parts.append(f"Overhead: Base {_fmt(base_ov)}  With Net {_fmt(net_ov)}")
+
+                print(f"    {title:30} " + " | ".join(parts))
+
+            if not any_shown:
+                print("    No data")
 
 
 if __name__ == "__main__":
