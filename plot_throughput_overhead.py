@@ -284,38 +284,31 @@ def print_summary(data):
 
     models = sort_models_by_config(all_models, model_order)
 
-    for concurrency in [1, 50, 100]:
-        print(f"\n{concurrency} CONCURRENT REQUESTS")
+    # Group by model and list concurrency rates under each
+    for model in models:
+        display_name = get_display_name(model, display_names)
+        print(f"\n{display_name}")
         print("-"*80)
 
-        if 'cc' in data[concurrency] and data[concurrency]['cc']:
-            print(f"  {mode_labels['cc']}:")
-            for model in models:
-                if model in data[concurrency]['cc']:
-                    display_name = get_display_name(model, display_names)
-                    print(f"    {display_name:30} Input: {data[concurrency]['cc'][model]['input_throughput']:7.1f}")
+        for concurrency in [100, 50, 1]:
+            cc = data.get(concurrency, {}).get('cc', {}).get(model)
+            nocc = data.get(concurrency, {}).get('no_cc', {}).get(model)
+            if not cc and not nocc:
+                # No data for this rate for this model
+                continue
 
-        if 'no_cc' in data[concurrency] and data[concurrency]['no_cc']:
-            print(f"  {mode_labels['no_cc']}:")
-            for model in models:
-                if model in data[concurrency]['no_cc']:
-                    display_name = get_display_name(model, display_names)
-                    print(f"    {display_name:30} Input: {data[concurrency]['no_cc'][model]['input_throughput']:7.1f}")
+            parts = []
+            if cc:
+                parts.append(f"{mode_labels['cc']}: In {cc['input_throughput']:7.1f} Out {cc.get('output_throughput', 0):7.1f}")
+            if nocc:
+                parts.append(f"{mode_labels['no_cc']}: In {nocc['input_throughput']:7.1f} Out {nocc.get('output_throughput', 0):7.1f}")
 
-        print("  CC Overhead:")
-        for model in models:
-            cc_throughput = 0
-            no_cc_throughput = 0
+            if cc and nocc:
+                if nocc['input_throughput'] > 0:
+                    ov = ((nocc['input_throughput'] - cc['input_throughput']) / nocc['input_throughput']) * 100
+                    parts.append(f"Overhead In: {ov:+6.1f}%")
 
-            if model in data[concurrency]['cc']:
-                cc_throughput = data[concurrency]['cc'][model]['input_throughput']
-            if model in data[concurrency]['no_cc']:
-                no_cc_throughput = data[concurrency]['no_cc'][model]['input_throughput']
-
-            if no_cc_throughput > 0:
-                overhead_pct = ((no_cc_throughput - cc_throughput) / no_cc_throughput) * 100
-                display_name = get_display_name(model, display_names)
-                print(f"    {display_name:30} Input: {overhead_pct:+6.1f}%")
+            print(f"  Rate {concurrency:>3}: " + " | ".join(parts))
 
 if __name__ == "__main__":
     print("Collecting throughput data by concurrency...")

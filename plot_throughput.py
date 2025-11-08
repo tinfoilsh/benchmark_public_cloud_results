@@ -441,14 +441,24 @@ def create_all_scenario_plots(all_data):
     return all_data
 
 def print_detailed_summary(all_data):
-    """Print detailed summary statistics for all scenarios"""
+    """Print detailed throughput grouped by model, with experiments grouped by rate."""
     print("\n" + "="*80)
     print("DETAILED THROUGHPUT SUMMARY (tokens/second)")
     print("="*80)
 
     _, model_order, display_names, _, mode_labels = load_config()
 
-    # Create scenario titles for readable output
+    # Base scenarios shown under each rate group
+    base_scenarios = [
+        "random",
+        "summarization",
+        "translation",
+        "sharegpt",
+        "edit_10k_char",
+        "numina_math",
+    ]
+    request_rates = [100, 50, 1]
+
     base_scenario_titles = {
         'random': 'Random (1500 ⇒ 250)',
         'summarization': 'Random (4000 ⇒ 1000)',
@@ -458,68 +468,69 @@ def print_detailed_summary(all_data):
         'numina_math': 'Numina Math',
     }
 
-    scenario_titles = {}
-    for base_scenario, title in base_scenario_titles.items():
-        for rate in [100, 50, 1]:
-            scenario_key = f"{base_scenario}_rate{rate}"
-            rate_label = "Single Request" if rate == 1 else f"{rate} Request Rate"
-            scenario_titles[scenario_key] = f"{title} ({rate_label})"
-
+    # Collect all models across scenarios and modes
+    all_models = set()
     for scenario, data in all_data.items():
-        display_title = scenario_titles.get(scenario, scenario.upper().replace('_', ' '))
-        print(f"\n{display_title.upper()}")
+        all_models.update(data.get('cc', {}).keys())
+        all_models.update(data.get('no_cc', {}).keys())
+    models_sorted = sort_models_by_config(all_models, model_order)
+
+    for model in models_sorted:
+        display_name = get_display_name(model, display_names)
+        print(f"\n{display_name}")
         print("-"*80)
 
-        # Print CC section
-        if 'cc' in data and data['cc']:
-            print(f"  {mode_labels['cc']}:")
-            models = sort_models_by_config(data['cc'].keys(), model_order)
-            for model in models:
-                if model in data['cc']:
-                    display_name = get_display_name(model, display_names)
-                    print(f"    {display_name:30} Input: {data['cc'][model]['input_throughput']:7.1f}  Output: {data['cc'][model]['output_throughput']:7.1f}")
+        for rate in request_rates:
+            print(f"  Rate {rate}:")
+            any_shown = False
+            input_overheads = []
+            output_overheads = []
 
-        # Print No-CC section
-        if 'no_cc' in data and data['no_cc']:
-            print(f"  {mode_labels['no_cc']}:")
-            models = sort_models_by_config(data['no_cc'].keys(), model_order)
-            for model in models:
-                if model in data['no_cc']:
-                    display_name = get_display_name(model, display_names)
-                    print(f"    {display_name:30} Input: {data['no_cc'][model]['input_throughput']:7.1f}  Output: {data['no_cc'][model]['output_throughput']:7.1f}")
+            for base in base_scenarios:
+                scenario_key = f"{base}_rate{rate}"
+                data = all_data.get(scenario_key, {})
+                cc = data.get('cc', {}).get(model)
+                nocc = data.get('no_cc', {}).get(model)
 
-        # Print CC Overhead section
-        print("  CC Overhead:")
-        # Get all models that appear in both CC and No-CC for this scenario
-        cc_models = set(data.get('cc', {}).keys())
-        no_cc_models = set(data.get('no_cc', {}).keys())
-        common_models = sort_models_by_config(cc_models & no_cc_models, model_order)
-        
-        if common_models:
-            for model in common_models:
-                display_name = get_display_name(model, display_names)
-                cc_input = data['cc'][model]['input_throughput']
-                cc_output = data['cc'][model]['output_throughput']
-                no_cc_input = data['no_cc'][model]['input_throughput']
-                no_cc_output = data['no_cc'][model]['output_throughput']
-                
-                # Calculate overhead: ((No-CC - CC) / No-CC) * 100%
-                # For throughput, positive values mean CC has lower throughput (worse)
-                if no_cc_input > 0:
-                    input_overhead = ((no_cc_input - cc_input) / no_cc_input) * 100
-                    input_overhead_str = f"{input_overhead:+6.1f}%"
-                else:
-                    input_overhead_str = " N/A "
-                    
-                if no_cc_output > 0:
-                    output_overhead = ((no_cc_output - cc_output) / no_cc_output) * 100
-                    output_overhead_str = f"{output_overhead:+6.1f}%"
-                else:
-                    output_overhead_str = " N/A "
-                
-                print(f"    {display_name:30} Input: {input_overhead_str}  Output: {output_overhead_str}")
-        else:
-            print("    No models with both CC and No-CC data")
+                if not cc and not nocc:
+                    continue
+
+                any_shown = True
+                title = base_scenario_titles.get(base, base)
+
+                parts = []
+                if cc:
+                    parts.append(f"{mode_labels['cc']}: In {cc['input_throughput']:7.1f} Out {cc['output_throughput']:7.1f}")
+                if nocc:
+                    parts.append(f"{mode_labels['no_cc']}: In {nocc['input_throughput']:7.1f} Out {nocc['output_throughput']:7.1f}")
+
+                # Overhead if both CC and No-CC are present
+                if cc and nocc:
+                    in_over = " N/A "
+                    out_over = " N/A "
+                    if nocc['input_throughput'] > 0:
+                        in_ov_val = ((nocc['input_throughput'] - cc['input_throughput']) / nocc['input_throughput']) * 100
+                        in_over = f"{in_ov_val:+6.1f}%"
+                        input_overheads.append(in_ov_val)
+                    if nocc['output_throughput'] > 0:
+                        out_ov_val = ((nocc['output_throughput'] - cc['output_throughput']) / nocc['output_throughput']) * 100
+                        out_over = f"{out_ov_val:+6.1f}%"
+                        output_overheads.append(out_ov_val)
+                    parts.append(f"Overhead: In {in_over} Out {out_over}")
+
+                print(f"    {title:30} " + " | ".join(parts))
+
+            if not any_shown:
+                print("    No data")
+            # Per-rate average overhead and separator
+            if input_overheads or output_overheads:
+                avg_in = sum(input_overheads)/len(input_overheads) if input_overheads else None
+                avg_out = sum(output_overheads)/len(output_overheads) if output_overheads else None
+                avg_in_str = f"{avg_in:+6.1f}%" if avg_in is not None else " N/A "
+                avg_out_str = f"{avg_out:+6.1f}%" if avg_out is not None else " N/A "
+                n_exps = max(len(input_overheads), len(output_overheads))
+                print(f"    Average Mean Overhead across {n_exps} experiments: In {avg_in_str} Out {avg_out_str}")
+            print("  " + "-"*80)
 
 if __name__ == "__main__":
     print("Collecting throughput data for all scenarios...")
