@@ -285,7 +285,7 @@ def create_network_latency_plots(all_data):
     for base_scenario, title in base_scenario_titles.items():
         for rate in [100, 50, 1]:
             scenario_key = f"{base_scenario}_rate{rate}"
-            rate_label = "Single Request" if rate == 1 else f"{rate} Request Rate"
+            rate_label = f"Request Rate {rate}"
             scenario_titles[scenario_key] = f"{title} ({rate_label})"
 
     for scenario, data in all_data.items():
